@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const userRepository = require('../repository/UserRepository');
+const userRepository = require('../repository/userRepository');
 const tokenService = require('./tokenService');
 const resHandler = require('../utils/resHandler');
 
@@ -26,8 +26,7 @@ class AuthService {
         } else {
             if (!user.oauthId) {
                 user = await userRepository.linkGoogle(user.id, oauthId, avatarUrl);
-            }
-            else if (!user.avatarUrl && avatarUrl) {
+            } else if (!user.avatarUrl && avatarUrl) {
                 user = await userRepository.updateUser(user.id, { avatarUrl });
             }
         }

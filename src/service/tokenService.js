@@ -5,7 +5,7 @@ const ACCESS_SECRET = process.env.JWT_ACCESS_TOKEN;
 const REFRESH_SECRET = process.env.JWT_REFRESH_TOKEN;
 const ACCESS_TTL = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
 const REFRESH_TTL = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
-const REFRESH_TTL_S = 7 * 24 * 60 * 60; 
+const REFRESH_TTL_S = 7 * 24 * 60 * 60;
 
 class TokenService {
     signAccessToken(user) {
@@ -25,7 +25,7 @@ class TokenService {
         const stored = await redis.get(`refresh_token:${payload.id}`);
 
         if (!stored || stored !== token)
-            throw Object.assign(new Error('Refresh token tidak valid atau sudah expired'), { status: 401 });
+            throw Object.assign(new Error('Refresh Token is Invalid or Expired'), { status: 401 });
 
         return payload;
     }

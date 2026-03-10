@@ -41,7 +41,7 @@ const register = async (req, res) => {
 const login = [
     (req, res, next) => {
         passport.authenticate('local', { session: false }, async (err, user, info) => {
-            if (err) return res.status(500).json(resHandler.error('Terjadi kesalahan'));
+            if (err) return res.status(500).json(resHandler.error('An Error Occurred'));
             if (!user) return res.status(401).json(resHandler.error(info?.message || 'Login Failed'));
 
             try {

@@ -17,7 +17,7 @@ passport.use(
                 const oauthId = profile.id;
                 const avatarUrl = profile.photos?.[0]?.value || null;
 
-                if (!email) return done(new Error('Akun Google tidak memiliki email'), null);
+                if (!email) return done(new Error('Google Account Does Not Have an Email'), null);
 
                 const tokens = await authService.handleGoogleUser({ oauthId, email, name, avatarUrl });
                 done(null, tokens);

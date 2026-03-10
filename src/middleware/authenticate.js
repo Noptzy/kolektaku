@@ -4,18 +4,16 @@ const resHandler = require('../utils/resHandler');
 const authenticate = async (req, res, next) => {
     try {
         const header = req.headers.authorization;
-        if (!header?.startsWith('Bearer ')) return res.status(401).json(resHandler.error('Token tidak ditemukan'));
+        if (!header?.startsWith('Bearer ')) return res.status(401).json(resHandler.error('Token Not Found'));
 
         const token = header.slice(7);
         const payload = jwt.verify(token, process.env.JWT_ACCESS_TOKEN);
-a
+        
         req.user = { id: payload.id, email: payload.email, roleId: payload.roleId };
         next();
     } catch (err) {
         const isExpired = err.name === 'TokenExpiredError';
-        res.status(401).json(
-            resHandler.error(isExpired ? 'Token expired' : 'Token tidak valid', { expired: isExpired }),
-        );
+        res.status(401).json(resHandler.error(isExpired ? 'Token Expired' : 'Invalid Token', { expired: isExpired }));
     }
 };
 
@@ -24,7 +22,7 @@ const requireRole =
     (req, res, next) => {
         if (!req.user) return res.status(401).json(resHandler.error('Unauthorized'));
 
-        if (!roleIds.includes(req.user.roleId)) return res.status(403).json(resHandler.error('Akses ditolak'));
+        if (!roleIds.includes(req.user.roleId)) return res.status(403).json(resHandler.error('Access Denied'));
 
         next();
     };
