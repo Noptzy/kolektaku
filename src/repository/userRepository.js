@@ -4,7 +4,17 @@ const DEFAULT_ROLE_ID = 3;
 
 class UserRepository {
     findUserById(id, tx = prisma) {
-        return tx.user.findUnique({ where: { id } });
+        return tx.user.findUnique({
+            where: { id },
+            include: {
+                role: { select: { id: true, title: true } },
+                subscription: {
+                    include: { plan: { select: { id: true, title: true, durationDays: true } } },
+                },
+                premiumTrial: true,
+                keys: true,
+            },
+        });
     }
 
     findUserByEmail(email, tx = prisma) {
@@ -17,25 +27,52 @@ class UserRepository {
         });
     }
 
-    findAllUsers({ skip = 0, take = 20 } = {}, tx = prisma) {
+    findAllUsers({ skip = 0, take = 20, search } = {}, tx = prisma) {
+        const where = { roleId: { not: 1 } };
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
         return tx.user.findMany({
             skip,
             take,
             orderBy: { createdAt: 'desc' },
-            where: { roleId: { not: 1 } }, // Exclude Super Admin
+            where,
             select: {
+                id: true,
                 email: true,
                 name: true,
                 roleId: true,
                 avatarUrl: true,
+                provider: true,
+                createdAt: true,
+                updatedAt: true,
+                role: { select: { id: true, title: true } },
+                subscription: {
+                    select: {
+                        planId: true,
+                        expiredAt: true,
+                        plan: { select: { title: true } },
+                    },
+                },
+                premiumTrial: { select: { expiresAt: true, isUsed: true } },
+                keys: { select: { balance: true } },
             },
         });
     }
 
-    countUsers(tx = prisma) {
-        return tx.user.count({
-            where: { roleId: { not: 1 } },
-        });
+    countUsers({ search } = {}, tx = prisma) {
+        const where = { roleId: { not: 1 } };
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+        return tx.user.count({ where });
     }
 
     async findUser({ params = {} }, tx = prisma) {
@@ -102,6 +139,25 @@ class UserRepository {
         return tx.user.update({
             where: { id },
             data: { oauthId, avatarUrl, provider: 'google', updatedAt: new Date() },
+        });
+    }
+
+    assignMembership(userId, planId, price, expiredAt, tx = prisma) {
+        return tx.userSubscription.upsert({
+            where: { userId },
+            update: {
+                planId,
+                price,
+                expiredAt,
+                updatedAt: new Date(),
+            },
+            create: {
+                userId,
+                planId,
+                price,
+                expiredAt,
+                updatedAt: new Date(),
+            },
         });
     }
 }

@@ -106,6 +106,9 @@ model User {
   watchHistories UserWatchHistory[]
   readHistories  UserReadHistory[]
   auditLogs      AdminAuditLog[]
+  premiumTrial   PremiumTrial?
+  keys           UserKey?
+  voucherUsages  VoucherUsage[]
 
   @@index([roleId])
   @@index([email])
@@ -142,6 +145,8 @@ model MembershipPlan {
 
   subscriptions UserSubscription[]
   transactions  Transaction[]
+  vouchers      VoucherCode[]
+  voucherUsages VoucherUsage[]
 
   @@map("membership_plans")
 }
@@ -179,6 +184,66 @@ model Transaction {
   @@index([planId])
   @@index([status])
   @@map("transactions")
+}
+
+model VoucherCode {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  code            String    @unique
+  discountPercent Int       @map("discount_percent")
+  maxUses         Int       @default(1) @map("max_uses")
+  usedCount       Int       @default(0) @map("used_count")
+  planId          Int?      @map("plan_id")
+  isActive        Boolean   @default(true) @map("is_active")
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime? @map("created_at")
+
+  plan   MembershipPlan? @relation(fields: [planId], references: [id])
+  usages VoucherUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("voucher_codes")
+}
+
+model VoucherUsage {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  voucherId String    @map("voucher_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  planId    Int?      @map("plan_id")
+  usedAt    DateTime  @default(now()) @map("used_at")
+
+  voucher VoucherCode    @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan    MembershipPlan? @relation(fields: [planId], references: [id])
+
+  @@index([voucherId])
+  @@index([userId])
+  @@map("voucher_usages")
+}
+
+model PremiumTrial {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @unique @map("user_id") @db.Uuid
+  startedAt DateTime  @default(now()) @map("started_at")
+  expiresAt DateTime  @map("expires_at")
+  isUsed    Boolean   @default(false) @map("is_used")
+  createdAt DateTime? @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("premium_trials")
+}
+
+model UserKey {
+  userId    String    @id @map("user_id") @db.Uuid
+  balance   Int       @default(0)
+  updatedAt DateTime? @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_keys")
 }
 
 model Koleksi {

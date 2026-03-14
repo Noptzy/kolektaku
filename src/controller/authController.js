@@ -13,11 +13,18 @@ const googleLogin = passport.authenticate('google', {
 });
 
 const googleCallback = [
-    passport.authenticate('google', { session: false, failureRedirect: '/api/auth/google/failed' }),
-    (req, res) => {
-        const { accessToken, refreshToken } = req.user;
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        res.redirect(`${clientUrl}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    (req, res, next) => {
+        passport.authenticate('google', { session: false }, (err, user, info) => {
+            const clientUrl = process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:5173';
+
+            if (err || !user) {
+                log.warn(`Google OAuth failed: ${err?.message || info?.message || 'Unknown error'}`);
+                return res.redirect(`${clientUrl}/auth/callback?error=${encodeURIComponent(err?.message || 'Login failed')}`);
+            }
+
+            const { accessToken, refreshToken } = user;
+            res.redirect(`${clientUrl}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+        })(req, res, next);
     },
 ];
 

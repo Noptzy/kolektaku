@@ -17,19 +17,28 @@ class resHandler {
         const response = {
             success: this.success,
             message: this.message,
-            creator: 'Nostzy',
+            creator: 'NopTzy',
         };
 
         if (
             this.data &&
             typeof this.data === 'object' &&
-            Array.isArray(this.data.data) &&
             typeof this.data.total === 'number' &&
             typeof this.data.page === 'number' &&
             typeof this.data.limit === 'number' &&
             typeof this.data.totalPages === 'number'
         ) {
-            response.data = this.data.data;
+            // Either data.data is an array (standard response) OR data.relations is an array (staff/va/studio response)
+            if (Array.isArray(this.data.data)) {
+                response.data = this.data.data;
+            } else {
+                // For custom relation structures where the generic 'data' property is mapped to specific keys
+                // We extract the pure data payload without the pagination keys
+                const { total, page, limit, totalPages, ...restData } = this.data;
+                // If the only thing inside restData is 'data', unwrap it, otherwise keep the object structure
+                response.data = restData.data !== undefined ? restData.data : restData;
+            }
+            
             response.total = this.data.total;
             response.page = this.data.page;
             response.limit = this.data.limit;

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const userRepository = require('../repository/userRepository');
 const tokenService = require('./tokenService');
+const emailService = require('./emailService');
 const resHandler = require('../utils/resHandler');
 
 class AuthService {
@@ -15,6 +16,11 @@ class AuthService {
             password: hashed,
         });
 
+        // Send welcome email (fire-and-forget)
+        emailService.sendWelcome(user.email, user.name).catch((err) => {
+            console.error(`Failed to trigger welcome email: ${err.message}`);
+        });
+
         return { id: user.id, email: user.email, name: user.name };
     }
 
@@ -23,6 +29,10 @@ class AuthService {
 
         if (!user) {
             user = await userRepository.storeGoogleUser({ email, name, oauthId, avatarUrl });
+            // Send welcome email for new Google users
+            emailService.sendWelcome(user.email, user.name).catch((err) => {
+                console.error(`Failed to trigger welcome email: ${err.message}`);
+            });
         } else {
             if (!user.oauthId) {
                 user = await userRepository.linkGoogle(user.id, oauthId, avatarUrl);
@@ -36,12 +46,16 @@ class AuthService {
 
     async refreshTokens(oldToken) {
         const payload = await tokenService.verifyRefreshToken(oldToken);
-        await tokenService.revokeRefreshToken(payload.id);
 
         const user = await userRepository.findUserById(payload.id);
         if (!user) throw Object.assign(resHandler.error('User Not Found'), { status: 404 });
 
-        return tokenService.issueTokens(user);
+        // Only issue a new access token, keep the old refresh token
+        // to prevent race conditions causing random logouts.
+        return {
+            accessToken: tokenService.signAccessToken(user),
+            refreshToken: oldToken
+        };
     }
 
     logout(userId) {
