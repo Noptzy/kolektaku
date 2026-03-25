@@ -1,0 +1,572 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProviderType {
+  local
+  google
+
+  @@map("provider_type")
+}
+
+enum TransactionStatus {
+  pending
+  success
+  failed
+  expired
+
+  @@map("transaction_status")
+}
+
+enum TipeKoleksi {
+  anime
+  manga
+  donghua
+  drakor
+
+  @@map("tipe_koleksi")
+}
+
+enum BookmarkStatus {
+  watching
+  reading
+  completed
+  onHold      @map("on_hold")
+  dropped
+  planToWatch @map("plan_to_watch")
+
+  @@map("bookmark_status")
+}
+
+enum AudioType {
+  sub
+  dubEn @map("dub_en")
+  dubId @map("dub_id")
+
+  @@map("audio_type")
+}
+
+enum MappingStatus {
+  pending
+  resolved
+  ignored
+
+  @@map("mapping_status")
+}
+
+enum ScrapeStatus {
+  success
+  error
+  warning
+
+  @@map("scrape_status")
+}
+
+enum PublishStatus {
+  draft
+  published
+  hidden
+  rejected
+
+  @@map("publish_status")
+}
+
+model Role {
+  id        Int       @id @default(autoincrement())
+  title     String?
+  createdAt DateTime? @map("created_at")
+
+  users User[]
+
+  @@index([title])
+  @@map("roles")
+}
+
+model User {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  email     String       @unique
+  name      String?
+  roleId    Int?         @map("role_id")
+  password  String?
+  oauthId   String?      @map("oauth_id")
+  avatarUrl String?      @map("avatar_url") @db.Text
+  provider  ProviderType @default(local)
+  metadata  Json?
+  createdAt DateTime?    @map("created_at")
+  updatedAt DateTime?    @map("updated_at")
+
+  role           Role?              @relation(fields: [roleId], references: [id])
+  subscription   UserSubscription?
+  transactions   Transaction[]
+  bookmarks      UserBookmark[]
+  watchHistories UserWatchHistory[]
+  readHistories  UserReadHistory[]
+  auditLogs      AdminAuditLog[]
+
+  @@index([roleId])
+  @@index([email])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model AdminAuditLog {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  adminId    String    @map("admin_id") @db.Uuid
+  action     String?
+  entityType String?   @map("entity_type")
+  entityId   String?   @map("entity_id")
+  changes    Json?
+  createdAt  DateTime? @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([entityType])
+  @@index([entityType, entityId])
+  @@map("admin_audit_logs")
+}
+
+model MembershipPlan {
+  id           Int       @id @default(autoincrement())
+  title        String?
+  desc         String?   @db.Text
+  price        BigInt?
+  durationDays Int?      @map("duration_days")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime? @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  subscriptions UserSubscription[]
+  transactions  Transaction[]
+
+  @@map("membership_plans")
+}
+
+model UserSubscription {
+  userId    String    @id @map("user_id") @db.Uuid
+  planId    Int       @map("plan_id")
+  price     BigInt?
+  expiredAt DateTime? @map("expired_at")
+  updatedAt DateTime? @map("updated_at")
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+  @@map("user_subscriptions")
+}
+
+model Transaction {
+  id            String            @id
+  userId        String            @map("user_id") @db.Uuid
+  planId        Int               @map("plan_id")
+  amount        BigInt?
+  paymentMethod String?           @map("payment_method")
+  referenceId   String?           @map("reference_id")
+  checkoutUrl   String?           @map("checkout_url")
+  status        TransactionStatus @default(pending)
+  createdAt     DateTime?         @map("created_at")
+  updatedAt     DateTime?         @map("updated_at")
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@map("transactions")
+}
+
+model Koleksi {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  title              String?
+  slug               String?       @unique
+  posterUrl          String?       @map("poster_url") @db.Text
+  landscapePosterUrl String?       @map("landscape_poster_url") @db.Text
+  altTitles          Json?         @map("alt_titles")
+  synopsis           String?       @db.Text
+  type               String?
+  status             String?
+  releaseYear        Int?          @map("release_year")
+  koleksiType        TipeKoleksi?  @map("koleksi_type")
+  publishStatus      PublishStatus @default(published) @map("publish_status")
+  isNsfw             Boolean       @default(false) @map("is_nsfw")
+  contentRating      String?       @map("content_rating")
+  createdAt          DateTime?     @map("created_at")
+
+  animeDetail     AnimeDetail?
+  mangaDetail     MangaDetail?
+  mapping         KoleksiMapping?
+  genres          KoleksiGenre[]
+  studios         KoleksiStudio[]
+  characters      KoleksiCharacter[]
+  staff           KoleksiStaff[]
+  relations       KoleksiRelation[]
+  bookmarks       UserBookmark[]
+  pendingMappings PendingMapping[]
+  airingSchedules AiringSchedule[]
+
+  @@index([status])
+  @@index([releaseYear])
+  @@index([type])
+  @@index([koleksiType])
+  @@index([publishStatus])
+  @@index([isNsfw])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("koleksi")
+}
+
+model KoleksiMapping {
+  koleksiId     String    @id @map("koleksi_id") @db.Uuid
+  anilistId     Int?      @unique @map("anilist_id")
+  myanimelistId Int?      @map("myanimelist_id")
+  nineanimeId   String?   @map("nineanime_id")
+  komikindoSlug String?   @map("komikindo_slug")
+  lastSyncAt    DateTime? @map("last_sync_at")
+
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+
+  @@index([myanimelistId])
+  @@map("koleksi_mappings")
+}
+
+model Genre {
+  id     String  @id @default(uuid(7)) @db.Uuid
+  name   String  @unique
+  slug   String  @unique
+  isNsfw Boolean @default(false) @map("is_nsfw")
+
+  koleksiGenres KoleksiGenre[]
+
+  @@map("genres")
+}
+
+model KoleksiGenre {
+  koleksiId String @map("koleksi_id") @db.Uuid
+  genreId   String @map("genre_id") @db.Uuid
+
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  genre   Genre   @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([koleksiId, genreId])
+  @@index([koleksiId])
+  @@index([genreId])
+  @@map("koleksi_genres")
+}
+
+model AnimeDetail {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  koleksiId     String    @unique @map("koleksi_id") @db.Uuid
+  format        String?
+  totalEpisodes Int?      @map("total_episodes")
+  epsDuration   Int?      @map("eps_duration")
+  startDate     DateTime? @map("start_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  season        String?
+  source        String?
+  romaji        String?
+  externalLinks Json?     @map("external_links")
+  trailerUrl    String?   @map("trailer_url") @db.Text
+
+  koleksi  Koleksi   @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@map("anime_detail")
+}
+
+model Episode {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  animeId       String    @map("anime_id") @db.Uuid
+  episodeNumber Decimal?  @map("episode_number")
+  title         String?
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  anime          AnimeDetail        @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  sources        EpisodeSource[]
+  watchHistories UserWatchHistory[]
+
+  @@index([animeId])
+  @@index([animeId, episodeNumber(sort: Desc)])
+  @@unique([animeId, episodeNumber])
+  @@map("episodes")
+}
+
+model EpisodeSource {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  episodeId      String    @map("episode_id") @db.Uuid
+  serverName     String?   @map("server_name")
+  audio          AudioType @default(sub)
+  streamType     String?   @default("hls") @map("stream_type")
+  urlSource      String?   @map("url_source")
+  subtitleTracks Json?     @map("subtitle_tracks")
+  externalId     String?   @map("external_id")
+  isScraper      Boolean   @default(false) @map("is_scraper")
+  createdAt      DateTime? @map("created_at")
+
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([episodeId])
+  @@unique([episodeId, serverName, audio])
+  @@map("episode_sources")
+}
+
+model MangaDetail {
+  id            String  @id @default(uuid(7)) @db.Uuid
+  koleksiId     String  @unique @map("koleksi_id") @db.Uuid
+  author        String?
+  artist        String?
+  serialization String?
+  chaptersCount Int?    @map("chapters_count")
+  volumesCount  Int?    @map("volumes_count")
+
+  koleksi  Koleksi   @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+
+  @@map("manga_detail")
+}
+
+model Chapter {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  mangaId       String    @map("manga_id") @db.Uuid
+  chapterNumber Decimal?  @map("chapter_number")
+  title         String?
+  urlSource     String?   @map("url_source")
+  imagesArray   Json?     @map("images_array")
+  createdAt     DateTime? @map("created_at")
+
+  manga         MangaDetail       @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  readHistories UserReadHistory[]
+
+  @@index([mangaId])
+  @@index([mangaId, chapterNumber(sort: Desc)])
+  @@map("chapters")
+}
+
+model Studio {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  anilistId         Int      @unique @map("anilist_id")
+  name              String?
+  isAnimationStudio Boolean? @map("is_animation_studio")
+  description       String?  @db.Text
+
+  koleksiStudios KoleksiStudio[]
+
+  @@map("studios")
+}
+
+model KoleksiStudio {
+  koleksiId String   @map("koleksi_id") @db.Uuid
+  studioId  String   @map("studio_id") @db.Uuid
+  isMain    Boolean? @map("is_main")
+
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  studio  Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([koleksiId, studioId])
+  @@index([koleksiId])
+  @@index([studioId])
+  @@map("koleksi_studios")
+}
+
+model Character {
+  id       String  @id @default(uuid(7)) @db.Uuid
+  name     String?
+  imageUrl String? @map("image_url") @db.Text
+
+  koleksiCharacters KoleksiCharacter[]
+
+  @@map("characters")
+}
+
+model VoiceActor {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  anilistId Int     @unique @map("anilist_id")
+  name      String?
+  imageUrl  String? @map("image_url") @db.Text
+
+  koleksiCharacters KoleksiCharacter[]
+
+  @@map("voice_actors")
+}
+
+model KoleksiCharacter {
+  koleksiId   String  @map("koleksi_id") @db.Uuid
+  characterId String  @map("character_id") @db.Uuid
+  vaId        String? @map("va_id") @db.Uuid
+  role        String?
+
+  koleksi    Koleksi     @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  character  Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  voiceActor VoiceActor? @relation(fields: [vaId], references: [id], onDelete: SetNull)
+
+  @@id([koleksiId, characterId])
+  @@index([koleksiId])
+  @@index([characterId])
+  @@index([vaId])
+  @@map("koleksi_characters")
+}
+
+model Staff {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  anilistId Int     @unique @map("anilist_id")
+  name      String?
+  imageUrl  String? @map("image_url") @db.Text
+
+  koleksiStaff KoleksiStaff[]
+
+  @@map("staff")
+}
+
+model KoleksiStaff {
+  koleksiId String  @map("koleksi_id") @db.Uuid
+  staffId   String  @map("staff_id") @db.Uuid
+  role      String?
+
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@id([koleksiId, staffId])
+  @@index([koleksiId])
+  @@index([staffId])
+  @@map("koleksi_staff")
+}
+
+model KoleksiRelation {
+  id              String  @id @default(uuid(7)) @db.Uuid
+  sourceKoleksiId String  @map("source_koleksi_id") @db.Uuid
+  targetAnilistId Int     @map("target_anilist_id")
+  relationType    String? @map("relation_type")
+
+  sourceKoleksi Koleksi @relation(fields: [sourceKoleksiId], references: [id], onDelete: Cascade)
+
+  @@index([sourceKoleksiId])
+  @@map("koleksi_relations")
+}
+
+model PendingMapping {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  sourceName     String?       @map("source_name")
+  sourceIdOrSlug String?       @map("source_id_or_slug")
+  scrapedTitle   String?       @map("scraped_title")
+  status         MappingStatus @default(pending)
+  koleksiId      String?       @map("koleksi_id") @db.Uuid
+  externalMetadata Json?       @map("external_metadata")
+  workerId       Int?          @map("worker_id")
+  createdAt      DateTime?     @map("created_at")
+  updatedAt      DateTime?     @map("updated_at")
+
+  koleksi    Koleksi?           @relation(fields: [koleksiId], references: [id], onDelete: SetNull)
+  candidates MappingCandidate[]
+
+  @@index([status])
+  @@index([koleksiId])
+  @@index([workerId])
+  @@map("pending_mappings")
+}
+
+model MappingCandidate {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  pendingMappingId  String    @map("pending_mapping_id") @db.Uuid
+  targetAnilistId   Int?      @map("target_anilist_id")
+  targetTitle       String?   @map("target_title")
+  targetFormat      String?   @map("target_format")
+  targetReleaseYear Int?      @map("target_release_year")
+  relationHint      String?   @map("relation_hint")
+  similarityScore   Decimal?  @map("similarity_score")
+  isApproved        Boolean   @default(false) @map("is_approved")
+  createdAt         DateTime? @map("created_at")
+
+  pendingMapping PendingMapping @relation(fields: [pendingMappingId], references: [id], onDelete: Cascade)
+
+  @@index([pendingMappingId])
+  @@index([pendingMappingId, similarityScore(sort: Desc)])
+  @@index([isApproved])
+  @@map("mapping_candidates")
+}
+
+model ScrapeLog {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  sourceName     String?      @map("source_name")
+  workerId       Int?         @map("worker_id")
+  status         ScrapeStatus
+  itemsProcessed Int          @default(0) @map("items_processed")
+  details        Json?        @map("details")
+  errorMessage   String?      @map("error_message") @db.Text
+  createdAt      DateTime?    @map("created_at")
+
+  @@index([status])
+  @@index([workerId])
+  @@map("scrape_logs")
+}
+
+model UserBookmark {
+  userId    String         @map("user_id") @db.Uuid
+  koleksiId String         @map("koleksi_id") @db.Uuid
+  status    BookmarkStatus @default(planToWatch)
+  createdAt DateTime?      @map("created_at")
+  updatedAt DateTime?      @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+
+  @@id([userId, koleksiId])
+  @@index([userId])
+  @@index([koleksiId])
+  @@index([userId, status])
+  @@map("user_bookmarks")
+}
+
+model UserWatchHistory {
+  userId           String    @map("user_id") @db.Uuid
+  episodeId        String    @map("episode_id") @db.Uuid
+  watchTimeSeconds Int       @default(0) @map("watch_time_seconds")
+  isCompleted      Boolean   @default(false) @map("is_completed")
+  updatedAt        DateTime? @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, episodeId])
+  @@index([userId])
+  @@index([episodeId])
+  @@map("user_watch_histories")
+}
+
+model UserReadHistory {
+  userId      String    @map("user_id") @db.Uuid
+  chapterId   String    @map("chapter_id") @db.Uuid
+  lastPage    Int       @default(0) @map("last_page")
+  isCompleted Boolean   @default(false) @map("is_completed")
+  updatedAt   DateTime? @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@id([userId, chapterId])
+  @@index([userId])
+  @@index([chapterId])
+  @@map("user_read_histories")
+}
+
+model AiringSchedule {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  koleksiId     String    @map("koleksi_id") @db.Uuid
+  episodeNumber Int       @map("episode_number")
+  airingAt      DateTime  @map("airing_at")
+  isScraped     Boolean   @default(false) @map("is_scraped")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  koleksi Koleksi @relation(fields: [koleksiId], references: [id], onDelete: Cascade)
+
+  @@index([koleksiId])
+  @@index([airingAt])
+  @@index([koleksiId, airingAt])
+  @@index([isScraped])
+  @@map("airing_schedules")
+}

@@ -1,0 +1,45 @@
+{
+  "name": "scraper_anime_manga",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:anime": "node src/seeds/seedAnilist.js anime",
+    "seed:master": "node src/seeds/seedAnilist.js anime --metadata-only --master-only",
+    "seed:master:once": "node src/scripts/seed_master_anilist.js",
+    "seed:worker:phase1": "node src/scripts/seed_worker_9anime.js",
+    "worker": "node src/scripts/worker.js",
+    "db:reset": "node src/scripts/db_reset.js",
+    "pm2:phase1:master:start": "npx pm2 start pm2.config.js --only kolektaku-phase1-master-anilist --update-env",
+    "pm2:phase1:workers:start": "npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env",
+    "pm2:phase1:workers:restart": "npx pm2 restart kolektaku-phase1-worker-9anime --update-env",
+    "pm2:phase1:seed": "node src/scripts/seed_master_anilist.js && npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env",
+    "pm2:phase1:all": "node src/scripts/seed_master_anilist.js && npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^1.43.0",
+    "@kolektaku/database": "file:../../packages/database",
+    "@prisma/adapter-pg": "^7.4.1",
+    "amqplib": "^0.10.9",
+    "axios": "^1.13.5",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "pg": "^8.18.0",
+    "puppeteer": "^24.39.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "string-similarity": "^4.0.4",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "@types/pg": "^8.16.0"
+  }
+}
