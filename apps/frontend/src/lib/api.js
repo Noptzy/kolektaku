@@ -8,7 +8,7 @@
 import axios from "axios";
 import { getTokens, setTokens, clearTokens, getAccessToken } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: API_URL,
