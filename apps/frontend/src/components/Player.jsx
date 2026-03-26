@@ -96,8 +96,11 @@ function getRefererForUrl(url) {
   return "https://megacloud.tv/"; // Default to megacloud instead of null
 }
 
-/** Proxy all HLS requests through the Next.js API route (same-origin, Node.js)
- *  This avoids Cloudflare-to-Cloudflare blocking that happens with CF Workers */
+const IS_PRODUCTION = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+
+/** Proxy HLS requests:
+ *  - Production: CF Worker (edge network, globally fast)
+ *  - Local dev: same-origin Next.js route (avoids CF-to-CF blocking) */
 class ProxyLoader extends Hls.DefaultConfig.loader {
   constructor(config) {
     super(config);
@@ -111,8 +114,12 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
         return;
       }
 
-      // Use same-origin Next.js API route for streaming (avoids CF-to-CF block)
-      const proxyUrl = `/proxy?url=${encodeURIComponent(originalUrl)}`;
+      // Production: CF Worker edge (fast, global CDN)
+      // Local: same-origin Next.js route (Node.js, no CF-to-CF block)
+      const referer = getRefererForUrl(originalUrl);
+      const proxyUrl = IS_PRODUCTION
+        ? `${PROXY_URL}/proxy?url=${encodeURIComponent(originalUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ""}`
+        : `/proxy?url=${encodeURIComponent(originalUrl)}`;
       const newContext = { ...context, url: proxyUrl };
       const newCallbacks = {
         ...callbacks,
@@ -365,7 +372,9 @@ export default function Player({
         if (isIndo) setIsSubtitleLoading(true);
 
         const url = activeSub.file.startsWith("http")
-          ? `/proxy?url=${encodeURIComponent(activeSub.file)}`
+          ? IS_PRODUCTION
+            ? `${PROXY_URL}/proxy?url=${encodeURIComponent(activeSub.file)}`
+            : `/proxy?url=${encodeURIComponent(activeSub.file)}`
           : activeSub.file;
 
         const res = await fetch(url);
