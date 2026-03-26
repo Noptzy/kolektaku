@@ -1,0 +1,12 @@
+node_modules/
+.env
+
+# Generated Prisma client
+/generated/
+
+# Dev log files (auto-deleted after 14 days via winston-daily-rotate-file)
+logs/
+!logs/.gitkeep
+
+# Test scripts
+tmp/
