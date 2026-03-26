@@ -20,6 +20,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/free-mode';
 
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || "http://localhost:3002";
+const TRANSLATE_URL = process.env.NEXT_PUBLIC_TRANSLATE_URL || "http://localhost:3002";
 const WINDOW_SIZE = 300; // 5 min translation windows
 
 function parseTime(timeStr) {
@@ -248,7 +249,7 @@ export default function EpisodeWatchPage({ params }) {
       .join("\n");
 
     try {
-      const response = await fetch(`${PROXY_URL}/translate-google`, {
+      const response = await fetch(`${TRANSLATE_URL}/translate-google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: textBlock, from: "en", to: "id" }),

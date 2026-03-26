@@ -12,6 +12,7 @@ import meService from "@/lib/meApi";
 
 const Player = dynamic(() => import("@/components/Player"), { ssr: false });
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || "http://localhost:3002";
+const TRANSLATE_URL = process.env.NEXT_PUBLIC_TRANSLATE_URL || "http://localhost:3002";
 
 function isIndonesianTrack(track) {
   const label = (track?.label || "").toLowerCase();
@@ -209,7 +210,7 @@ export default function WatchEpisodePage() {
           .map((cue, index) => `[${index}] ${cue.text.join(" ").replace(/<[^>]*>/g, "").trim()}`)
           .join("\n");
 
-        const translateResponse = await fetch(`${PROXY_URL}/translate-google`, {
+        const translateResponse = await fetch(`${TRANSLATE_URL}/translate-google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: textBlock, from: "en", to: "id" }),

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /d/Codingan/Kerjaan/Kolektaku -maxdepth 2 -type f \\\\\\(-name tsconfig.json -o -name prisma.schema -o -name eslint* -o -name .env.example \\\\\\))"
+      "Bash(find /d/Codingan/Kerjaan/Kolektaku -maxdepth 2 -type f \\\\\\(-name tsconfig.json -o -name prisma.schema -o -name eslint* -o -name .env.example \\\\\\))",
+      "Bash(npx wrangler:*)"
     ]
   }
 }
