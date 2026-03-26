@@ -3,51 +3,41 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import animeService from "@/lib/animeApi";
 import AiringSchedule from "@/components/AiringSchedule";
 
 // Swiper
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Autoplay, Pagination, EffectFade, FreeMode } from 'swiper/modules';
+import { Autoplay, EffectFade, Mousewheel } from 'swiper/modules';
 import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 import 'swiper/css/effect-fade';
-import 'swiper/css/free-mode';
 
 export default function HomePage() {
   const router = useRouter();
-  const [popularAnime, setPopularAnime] = useState([]);
-  const [trendingAnime, setTrendingAnime] = useState([]);
+  const { user } = useAuth();
+  const [updatedAnime, setUpdatedAnime] = useState([]);
+  const [mostWatched, setMostWatched] = useState([]);
+  const [randomAnime, setRandomAnime] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [stats, setStats] = useState({ totalAnime: 0, totalEpisodes: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-
-  useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem("hasSeenWelcome_v2");
-    if (!hasSeenWelcome) {
-      setShowWelcomeModal(true);
-    }
-  }, []);
-
-  const closeWelcomeModal = () => {
-    localStorage.setItem("hasSeenWelcome_v2", "true");
-    setShowWelcomeModal(false);
-  };
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const [res1, res2, resStats] = await Promise.all([
-          animeService.getAllAnime(1, 12),
-          animeService.getAllAnime(2, 6),
+        const [resUpdated, resMostWatched, resRandom, resStats] = await Promise.all([
+          animeService.getRecentlyUpdated(12),
+          animeService.getMostWatched(12),
+          animeService.getRandomAnime(2),
           animeService.getGlobalStats()
         ]);
-        setPopularAnime(res1.data || []);
-        setTrendingAnime(res2.data || []);
+        setUpdatedAnime(resUpdated.data || []);
+        setMostWatched(resMostWatched.data || []);
+        setRandomAnime(resRandom.data || []);
         if (resStats.success) {
           setStats(resStats.data);
         }
@@ -60,6 +50,22 @@ export default function HomePage() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    async function fetchRecommendations() {
+      if (user?.id) {
+        try {
+          const res = await animeService.getRecommendations(12);
+          if (res.success) {
+            setRecommendations(res.data || []);
+          }
+        } catch (err) {
+          console.error("Failed to fetch recommendations:", err);
+        }
+      }
+    }
+    fetchRecommendations();
+  }, [user?.id]);
 
   const AnimeCard = ({ item }) => (
     <div
@@ -91,7 +97,6 @@ export default function HomePage() {
           </div>
         )}
         <span className={`absolute bottom-2 left-2 flex items-center gap-1.5 text-[11px] font-medium text-white`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${item.status === 'FINISHED' ? 'bg-[var(--info)]' : item.status === 'RELEASING' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} />
           {item.status === 'FINISHED' ? 'Completed' : item.status === 'RELEASING' ? 'Airing' : item.status}
         </span>
       </div>
@@ -122,17 +127,17 @@ export default function HomePage() {
         
         {/* ═══════════ Hero Banner ═══════════ */}
         <section className="relative mt-4 md:mt-8 overflow-hidden rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] shadow-2xl">
-          {popularAnime.length > 0 ? (
+          {updatedAnime.length > 0 ? (
             <Swiper
-              modules={[Navigation, Autoplay, Pagination, EffectFade]}
+              modules={[Autoplay, EffectFade]}
               effect="fade"
               speed={1000}
               autoplay={{ delay: 6000, disableOnInteraction: false }}
-              pagination={{ clickable: true }}
-              navigation
+              grabCursor={true}
+              simulateTouch={true}
               className="w-full h-[420px] md:h-[520px] hero-swiper"
             >
-              {popularAnime.slice(0, 5).map((anime) => {
+              {updatedAnime.slice(0, 5).map((anime) => {
                 const synopsis = stripHtml(anime.synopsis);
                 return (
                   <SwiperSlide key={anime.id}>
@@ -261,12 +266,49 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            {/* ═══════════ Most Popular Section ═══════════ */}
+            {/* ═══════════ Recommendations Anime (Login Only) ═══════════ */}
+            {user && recommendations.length > 0 && (
+              <section className="mt-14">
+                <div className="mb-6 flex items-end justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">✨ Rekomendasi Kolektaku AI</h2>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">Anime pilihan spesial dari Kolektaku AI khusus buat kamu</p>
+                  </div>
+                </div>
+                
+                <Swiper
+                  modules={[Autoplay, Mousewheel]}
+                  spaceBetween={16}
+                  slidesPerView={2}
+                  grabCursor={true}
+                  simulateTouch={true}
+                  mousewheel={{ forceToAxis: true }}
+                  watchSlidesProgress={true}
+                  threshold={5}
+                  breakpoints={{
+                    480: { slidesPerView: 3, spaceBetween: 16 },
+                    640: { slidesPerView: 4, spaceBetween: 20 },
+                    768: { slidesPerView: 4, spaceBetween: 20 },
+                    1024: { slidesPerView: 5, spaceBetween: 24 },
+                    1280: { slidesPerView: 6, spaceBetween: 24 },
+                  }}
+                  className="homepage-swiper pb-4"
+                >
+                  {recommendations.map(item => (
+                    <SwiperSlide key={item.id}>
+                      <AnimeCard item={item} />
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </section>
+            )}
+
+            {/* ═══════════ Recently Updated Anime ═══════════ */}
             <section className="mt-14">
               <div className="mb-6 flex items-end justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Most Popular this Season</h2>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">Highest rated series by the community</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">🕒 Recently Updated Anime </h2>
+                  <p className="text-sm text-[var(--text-secondary)] mt-1">Anime dengan episode terbaru yang baru saja di-update</p>
                 </div>
                 <button onClick={() => router.push("/anime")} className="text-sm font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition">
                   View All →
@@ -274,11 +316,14 @@ export default function HomePage() {
               </div>
               
               <Swiper
-                modules={[Navigation, Autoplay, FreeMode]}
+                modules={[Autoplay, Mousewheel]}
                 spaceBetween={16}
                 slidesPerView={2}
-                freeMode={true}
-                navigation={true}
+                grabCursor={true}
+                simulateTouch={true}
+                mousewheel={{ forceToAxis: true }}
+                watchSlidesProgress={true}
+                threshold={5}
                 autoplay={{ delay: 4000, disableOnInteraction: false, pauseOnMouseEnter: true }}
                 breakpoints={{
                   480: { slidesPerView: 3, spaceBetween: 16 },
@@ -289,7 +334,7 @@ export default function HomePage() {
                 }}
                 className="homepage-swiper pb-4"
               >
-                {popularAnime.map(item => (
+                {updatedAnime.map(item => (
                   <SwiperSlide key={item.id}>
                     <AnimeCard item={item} />
                   </SwiperSlide>
@@ -297,12 +342,49 @@ export default function HomePage() {
               </Swiper>
             </section>
 
+            {/* ═══════════ Most Watched Anime ═══════════ */}
+            {mostWatched.length > 0 && (
+              <section className="mt-14">
+                <div className="mb-6 flex items-end justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">🔥 Most Watched Anime</h2>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">Anime yang paling banyak ditonton oleh komunitas Kolektaku</p>
+                  </div>
+                </div>
+                
+                <Swiper
+                  modules={[Mousewheel]}
+                  spaceBetween={16}
+                  slidesPerView={2}
+                  grabCursor={true}
+                  simulateTouch={true}
+                  mousewheel={{ forceToAxis: true }}
+                  watchSlidesProgress={true}
+                  threshold={5}
+                  breakpoints={{
+                    480: { slidesPerView: 3, spaceBetween: 16 },
+                    640: { slidesPerView: 4, spaceBetween: 20 },
+                    768: { slidesPerView: 4, spaceBetween: 20 },
+                    1024: { slidesPerView: 5, spaceBetween: 24 },
+                    1280: { slidesPerView: 6, spaceBetween: 24 },
+                  }}
+                  className="homepage-swiper pb-4"
+                >
+                  {mostWatched.map(item => (
+                    <SwiperSlide key={item.id}>
+                      <AnimeCard item={item} />
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </section>
+            )}
+
             {/* ═══════════ Featured Spotlight ═══════════ */}
-            {popularAnime.length > 5 && (
+            {randomAnime.length > 0 && (
               <section className="mt-16">
                 <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] mb-6">Randoms Anime</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {popularAnime.slice(5, 7).map((anime) => (
+                  {randomAnime.map((anime) => (
                     <div
                       key={anime.id}
                       onClick={() => router.push(`/anime/${anime.slug}`)}
@@ -447,84 +529,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* ═══════════ Welcome/Beta Modal ═══════════ */}
-      {showWelcomeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/40 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl shadow-black/50 animate-in zoom-in-95 duration-300">
-            {/* Top gradient bar */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-[var(--accent)] via-pink-500 to-purple-600" />
-            
-            <div className="px-6 py-8 sm:px-10 sm:py-10">
-              {/* Header */}
-              <div className="mb-6 sm:mb-8 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-[var(--accent-muted)] text-2xl sm:text-3xl shadow-inner">
-                  🚀
-                </div>
-                <h2 className="text-xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-                  Welcome to <span className="text-[var(--accent)]">Kolektaku Beta</span>
-                </h2>
-                <p className="mt-1 text-[10px] sm:text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-widest">
-                  Under Active Development
-                </p>
-              </div>
-
-              {/* Content List */}
-              <div className="space-y-3 sm:space-y-4">
-                {[
-                  {
-                    icon: "🛠️",
-                    title: "Tahap Pengembangan",
-                    desc: "Aplikasi masih tahap beta. Kami terus bekerja memberikan fitur terbaik setiap harinya."
-                  },
-                  {
-                    icon: "📺",
-                    title: "Streaming & Stabilitas",
-                    desc: "Jika streaming terhenti, harap dimaklumi. Sistem sedang kami optimasi."
-                  },
-                  {
-                    icon: "💎",
-                    title: "Unlock 1080p Full HD",
-                    desc: "Login untuk menikmati kualitas 1080p yang lebih tajam tanpa gangguan."
-                  }
-                ].map((item, idx) => (
-                  <div key={idx} className="flex gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)]/50 p-3 sm:p-4 transition-colors hover:border-[var(--accent)]/20">
-                    <span className="text-xl sm:text-2xl shrink-0">{item.icon}</span>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)]">{item.title}</h4>
-                      <p className="mt-0.5 text-[10px] sm:text-xs leading-relaxed text-[var(--text-secondary)]">
-                        {item.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Action Button */}
-              <div className="mt-8 sm:mt-10">
-                <button
-                  onClick={closeWelcomeModal}
-                  className="w-full rounded-xl sm:rounded-2xl bg-[var(--accent)] py-3 sm:py-4 text-xs sm:text-sm font-bold text-white shadow-xl shadow-[var(--accent-muted)] transition-all hover:bg-[var(--accent-hover)] hover:-translate-y-1 active:translate-y-0"
-                >
-                  Siap, Mari Jelajahi!
-                </button>
-                <p className="mt-3 sm:mt-4 text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">
-                  Kolektaku © 2026 • Build with ❤️
-                </p>
-              </div>
-            </div>
-
-            {/* Close icon */}
-            <button 
-              onClick={closeWelcomeModal}
-              className="absolute right-4 top-4 sm:right-6 sm:top-6 rounded-full p-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)]"
-            >
-              <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

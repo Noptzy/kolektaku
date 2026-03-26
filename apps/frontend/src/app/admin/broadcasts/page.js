@@ -22,9 +22,13 @@ function normalizePagedPayload(payload) {
   };
 }
 
+const STORAGE_KEY = "kolektaku_admin_broadcasts_state";
+
 export default function AdminBroadcastsPage() {
   const [broadcasts, setBroadcasts] = useState([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY))?.page || 1; } catch { return 1; }
+  });
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +49,10 @@ export default function AdminBroadcastsPage() {
     } finally {
       setLoading(false);
     }
+  }, [page]);
+
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ page }));
   }, [page]);
 
   useEffect(() => {

@@ -245,7 +245,9 @@ export default function Player({
       hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const MAX_HEIGHT = Infinity; // isPremium ? Infinity : 720;
+        const MAX_HEIGHT = isPremium ? Infinity : 720;
+
+        // Filter levels based on premium status
         const q = hls.levels
           .map((level, index) => ({
             label: level.height + "P",
@@ -253,10 +255,17 @@ export default function Player({
             height: level.height,
           }))
           .filter((q) => q.height <= MAX_HEIGHT);
+
         q.unshift({ label: "Auto", level: -1 });
         setQualities(q);
 
-        // Quality restriction removed for all users
+        // Enforce capping for auto-resolution
+        if (!isPremium) {
+          const maxLevelIndex = hls.levels.reduce((acc, level, index) => {
+            return level.height <= 720 ? index : acc;
+          }, -1);
+          hls.autoLevelCapping = maxLevelIndex;
+        }
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -567,7 +576,12 @@ export default function Player({
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      if (
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "SELECT" ||
+        e.target.tagName === "TEXTAREA" ||
+        e.target.isContentEditable
+      ) return;
       switch (e.key) {
         case " ": case "k": e.preventDefault(); togglePlay(); break;
         case "ArrowRight": e.preventDefault(); skipForward(); break;
@@ -677,10 +691,10 @@ export default function Player({
       {/* Skip Intro Button */}
       {showSkipIntro && (
         <button
-          onClick={() => { if (videoRef.current && intro) videoRef.current.currentTime = intro.end; }}
+          onClick={(e) => { e.stopPropagation(); if (videoRef.current && intro) videoRef.current.currentTime = intro.end; }}
           style={{
             position: "absolute", bottom: showControls ? "80px" : "30px", right: "20px",
-            zIndex: 30, padding: "8px 20px", borderRadius: "8px",
+            zIndex: 60, padding: "8px 20px", borderRadius: "8px",
             background: "rgba(236,72,153,0.85)", backdropFilter: "blur(8px)",
             color: "#fff", border: "1px solid rgba(255,255,255,0.2)",
             fontSize: "13px", fontWeight: 700, cursor: "pointer",
@@ -694,10 +708,10 @@ export default function Player({
       {/* Skip Outro / Next Episode Button */}
       {showSkipOutro && (
         <button
-          onClick={() => { if (onNextEpisode) onNextEpisode(); }}
+          onClick={(e) => { e.stopPropagation(); if (onNextEpisode) onNextEpisode(); }}
           style={{
             position: "absolute", bottom: showControls ? "80px" : "30px", right: "20px",
-            zIndex: 30, padding: "8px 20px", borderRadius: "8px",
+            zIndex: 60, padding: "8px 20px", borderRadius: "8px",
             background: "rgba(99,102,241,0.85)", backdropFilter: "blur(8px)",
             color: "#fff", border: "1px solid rgba(255,255,255,0.2)",
             fontSize: "13px", fontWeight: 700, cursor: "pointer",

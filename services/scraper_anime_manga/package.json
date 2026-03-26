@@ -4,18 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "seed:anime": "node src/seeds/seedAnilist.js anime",
-    "seed:master": "node src/seeds/seedAnilist.js anime --metadata-only --master-only",
-    "seed:master:once": "node src/scripts/seed_master_anilist.js",
-    "seed:worker:phase1": "node src/scripts/seed_worker_9anime.js",
     "worker": "node src/scripts/worker.js",
-    "db:reset": "node src/scripts/db_reset.js",
-    "pm2:phase1:master:start": "npx pm2 start pm2.config.js --only kolektaku-phase1-master-anilist --update-env",
-    "pm2:phase1:workers:start": "npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env",
-    "pm2:phase1:workers:restart": "npx pm2 restart kolektaku-phase1-worker-9anime --update-env",
-    "pm2:phase1:seed": "node src/scripts/seed_master_anilist.js && npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env",
-    "pm2:phase1:all": "node src/scripts/seed_master_anilist.js && npx pm2 start pm2.config.js --only kolektaku-phase1-worker-9anime --update-env"
+    "pm2:data:seed:anilist": "node src/scripts/seed_master_anilist.js",
+    "pm2:data:seed:9anime": "npx pm2 start pm2.config.js --only seed-9anime --update-env",
+    "pm2:data:seed:eps": "npx pm2 start pm2.config.js --only seed-episodes --update-env",
+    "pm2:data:seed:all": "npm run pm2:data:seed:anilist && npx pm2 start pm2.config.js --update-env"
   },
   "keywords": [],
   "author": "",

@@ -118,7 +118,7 @@ export default function AdminPlansPage() {
 
   const openAddModal = () => {
     setEditingPlan(null);
-    setFormData({ title: "", description: "", price: "", durationDays: 30, isActive: true });
+    setFormData({ title: "", desc: "", price: "", durationDays: 30, isActive: true });
     setIsModalOpen(true);
   };
 
@@ -126,7 +126,7 @@ export default function AdminPlansPage() {
     setEditingPlan(plan);
     setFormData({
       title: plan.title,
-      description: plan.description || "",
+      desc: plan.desc || "",
       price: plan.price.toString(),
       durationDays: plan.durationDays,
       isActive: plan.isActive ?? true,
@@ -169,7 +169,7 @@ export default function AdminPlansPage() {
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-bold text-[var(--text-primary)] text-base">{plan.title}</p>
-                        <p className="text-xs text-[var(--text-tertiary)] max-w-xs truncate">{plan.description}</p>
+                        <p className="text-xs text-[var(--text-tertiary)] max-w-xs truncate">{plan.desc}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-bold text-[var(--accent)]">
@@ -232,8 +232,8 @@ export default function AdminPlansPage() {
                 <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">Deskripsi</label>
                 <textarea
                   rows="2"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.desc}
+                  onChange={(e) => setFormData({ ...formData, desc: e.target.value })}
                   placeholder="Bebas iklan, akses semua konten..."
                   className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-4 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] resize-none"
                 />

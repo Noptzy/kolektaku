@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 const axios = require('axios');
 const { Pool } = require('pg');
 const { PrismaPg } = require('@prisma/adapter-pg');
@@ -220,7 +220,7 @@ async function fetchAniListPage(query, variables, retries = 3) {
                         'Content-Type': 'application/json',
                         Accept: 'application/json',
                     },
-                    timeout: 30_000,
+                    timeout: 120_000,
                 },
             );
 
@@ -267,7 +267,7 @@ async function fetchAniListPage(query, variables, retries = 3) {
 
             const isRetryable = !status || status >= 500;
             if (isRetryable && attempt < retries) {
-                const backoff = CONFIG.DELAY_MS * attempt * 2;
+                const backoff = Math.min(60_000, CONFIG.DELAY_MS * attempt * 3);
                 console.warn(
                     `  ⚠  Attempt ${attempt} failed (${status ?? 'network error'}). ` +
                         `Retrying in ${backoff}ms…`,

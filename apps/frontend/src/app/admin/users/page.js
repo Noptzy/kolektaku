@@ -174,7 +174,7 @@ export default function AdminUsersPage() {
         <form onSubmit={handleSearch} className="flex-1 max-w-sm flex gap-2">
           <div className="flex-1 relative">
             <i className="fa-solid fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" style={{ fontSize: 12 }}></i>
-            <input type="text" placeholder="Cari email atau nama..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="admin-input" style={{ paddingLeft: 34 }} />
+            <input type="text" placeholder="Cari email atau nama..." value={searchTerm} onChange={(e) => setState({ searchTerm: e.target.value })} className="admin-input" style={{ paddingLeft: 34 }} />
           </div>
           <button type="submit" className="admin-btn admin-btn-primary"><i className="fa-solid fa-search" style={{ fontSize: 11 }}></i> Cari</button>
         </form>

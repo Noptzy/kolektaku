@@ -46,7 +46,7 @@ function applyInformalStyle(text) {
   let s = text;
   s = s.replace(/\bSaya\b/gi, "Aku").replace(/\bAnda\b/gi, "Kamu").replace(/\bKami\b/gi, "Kita");
   s = s.replace(/\bTidak\b/gi, "Gak").replace(/\bBelum\b/gi, "Belom").replace(/\bTetapi\b/gi, "Tapi").replace(/\bNamun\b/gi, "Tapi");
-  s = s.replace(/\bSangat\b/gi, "Banget").replace(/\bSudah\b/gi, "Udah").replace(/\bMelihat\b/gi, "Liat");
+  s = s.replace(/\bSudah\b/gi, "Udah").replace(/\bMelihat\b/gi, "Liat");
   return s;
 }
 

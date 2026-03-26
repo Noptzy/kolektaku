@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Navbar from "@/components/Navbar";
+import ReportModal from "@/components/ReportModal";
+import EpisodeComments from "@/components/EpisodeComments";
 import { useAuth } from "@/contexts/AuthContext";
 import animeService from "@/lib/animeApi";
 import meService from "@/lib/meApi";
@@ -94,6 +96,7 @@ export default function WatchEpisodePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastWatchedEp, setLastWatchedEp] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const [playerTracks, setPlayerTracks] = useState([]);
   const [translationReady, setTranslationReady] = useState(true);
@@ -558,14 +561,32 @@ export default function WatchEpisodePage() {
                 )}
               </div>
 
-              <div
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
-                  isPremium
-                    ? "border border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]"
-                    : "border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-tertiary)]"
-                }`}
-              >
-                {isPremium ? "💎 1080p" : "🎞 720p Max"}
+              <div className="flex gap-3 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      document.dispatchEvent(new CustomEvent('open-login-modal'));
+                      return;
+                    }
+                    setShowReportModal(true);
+                  }}
+                  className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-1.5 text-xs font-bold text-[var(--danger)] transition hover:bg-[var(--danger)]/20 flex items-center gap-1"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                  </svg>
+                  Lapor
+                </button>
+                <div
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                    isPremium
+                      ? "border border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]"
+                      : "border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-tertiary)]"
+                  }`}
+                >
+                  {isPremium ? "💎 1080p" : "🎞 720p Max"}
+                </div>
               </div>
             </div>
 
@@ -624,6 +645,10 @@ export default function WatchEpisodePage() {
             <InfoCard icon="🧭" label="Subtitle" value="Bahasa Indonesia otomatis" />
           </div>
         </div>
+
+        <div className="mt-8">
+          <EpisodeComments episodeId={episode?.episode?.id || episode?.id} />
+        </div>
       </main>
 
       <footer className="mt-12 border-t border-[var(--border)] bg-[var(--bg-secondary)] py-6">
@@ -631,6 +656,13 @@ export default function WatchEpisodePage() {
           <p>© 2026 Kolektaku. Made with ❤️ for anime lovers</p>
         </div>
       </footer>
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        episodeId={episode?.episode?.id || episode?.id}
+        episodeTitle={(episode?.episode?.title || episode?.title) || `Episode ${episodeNumber}`}
+      />
     </div>
   );
 }

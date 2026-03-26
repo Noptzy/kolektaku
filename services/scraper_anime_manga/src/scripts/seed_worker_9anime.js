@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 
 const fs = require('fs');
 const path = require('path');
@@ -235,57 +235,36 @@ async function saveEpisodeBatch(animeDetailId, episodes) {
     let saved = 0;
     for (const ep of episodes) {
         try {
-            let episode = await prisma.episode.findFirst({
+            let episode = await prisma.episode.upsert({
                 where: {
+                    animeId_episodeNumber: { animeId: animeDetailId, episodeNumber: ep.episodeNumber }
+                },
+                update: { title: ep.title, updatedAt: new Date() },
+                create: {
                     animeId: animeDetailId,
                     episodeNumber: ep.episodeNumber,
+                    title: ep.title,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
                 },
             });
 
-            if (episode) {
-                episode = await prisma.episode.update({
-                    where: { id: episode.id },
-                    data: { title: ep.title, updatedAt: new Date() },
-                });
-            } else {
-                episode = await prisma.episode.create({
-                    data: {
-                        animeId: animeDetailId,
-                        episodeNumber: ep.episodeNumber,
-                        title: ep.title,
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                    },
-                });
-            }
-
-            let episodeSource = await prisma.episodeSource.findFirst({
+            let episodeSource = await prisma.episodeSource.upsert({
                 where: {
+                    episodeId_serverName_audio: { episodeId: episode.id, serverName: 'Kolektaku Stream 1', audio: 'sub' }
+                },
+                update: { urlSource: ep.url, externalId: ep.nineanimeEpId },
+                create: {
                     episodeId: episode.id,
                     serverName: 'Kolektaku Stream 1',
                     audio: 'sub',
+                    streamType: 'hls',
+                    urlSource: ep.url,
+                    externalId: ep.nineanimeEpId,
+                    isScraper: true,
+                    createdAt: new Date(),
                 },
             });
-
-            if (episodeSource) {
-                await prisma.episodeSource.update({
-                    where: { id: episodeSource.id },
-                    data: { urlSource: ep.url, externalId: ep.nineanimeEpId },
-                });
-            } else {
-                await prisma.episodeSource.create({
-                    data: {
-                        episodeId: episode.id,
-                        serverName: 'Kolektaku Stream 1',
-                        audio: 'sub',
-                        streamType: 'hls',
-                        urlSource: ep.url,
-                        externalId: ep.nineanimeEpId,
-                        isScraper: true,
-                        createdAt: new Date(),
-                    },
-                });
-            }
 
             saved++;
         } catch (error) {

@@ -3,12 +3,16 @@
 import { useState, useEffect, useMemo } from "react";
 import animeService from "@/lib/animeApi";
 
+const STORAGE_KEY = "kolektaku_admin_schedules_state";
+
 export default function AdminSchedulesPage() {
   const [schedules, setSchedules] = useState({});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY))?.selectedDate || null; } catch { return null; }
+  });
 
   const fetchSchedules = async () => {
     try {
@@ -32,6 +36,13 @@ export default function AdminSchedulesPage() {
   const dateKeys = useMemo(() => {
     return Object.keys(schedules).sort();
   }, [schedules]);
+
+  // Save selectedDate to sessionStorage
+  useEffect(() => {
+    if (selectedDate) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ selectedDate }));
+    }
+  }, [selectedDate]);
 
   // Auto-select first date once loaded
   useEffect(() => {

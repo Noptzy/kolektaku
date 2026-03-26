@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 const prisma = require('../config/prisma');
 const { logger } = require('../config/logger');
 

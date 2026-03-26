@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import adminService from "@/lib/adminApi";
 import Swal from "sweetalert2";
@@ -15,6 +15,7 @@ export default function AdminAnimePage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const stateRestored = useRef(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,10 +51,13 @@ export default function AdminAnimePage() {
         console.error("Failed to restore admin state:", e);
       }
     }
+    // Mark state as restored so the fetch effect can run
+    stateRestored.current = true;
   }, []);
 
   // Save state to sessionStorage whenever filters change
   useEffect(() => {
+    if (!stateRestored.current) return;
     const state = { searchTerm, hasEpisodes, publishStatus, mappedStatus, typeFilter, statusFilter, yearFilter, genreFilter, page };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [searchTerm, hasEpisodes, publishStatus, mappedStatus, typeFilter, statusFilter, yearFilter, genreFilter, page]);
@@ -64,7 +68,7 @@ export default function AdminAnimePage() {
     }).catch(() => {});
   }, []);
 
-  const fetchAnime = async () => {
+  const fetchAnime = useCallback(async () => {
     try {
       setLoading(true);
       const params = { page, limit: 12 };
@@ -86,9 +90,20 @@ export default function AdminAnimePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm, hasEpisodes, publishStatus, mappedStatus, typeFilter, statusFilter, yearFilter, genreFilter]);
 
-  useEffect(() => { fetchAnime(); }, [page, hasEpisodes, publishStatus, mappedStatus, typeFilter, statusFilter, yearFilter, genreFilter]);
+  // Fetch whenever filters/page change, but only after state is restored
+  useEffect(() => {
+    if (!stateRestored.current) return;
+    fetchAnime();
+  }, [fetchAnime]);
+
+  // Refetch when user navigates back (window regains focus)
+  useEffect(() => {
+    const handleFocus = () => { if (stateRestored.current) fetchAnime(); };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchAnime]);
 
   const handleSearch = (e) => { e.preventDefault(); setPage(1); fetchAnime(); };
 
@@ -135,10 +150,34 @@ export default function AdminAnimePage() {
           <h2>Anime Management</h2>
           <p>Full access — manage all anime, episodes, and metadata.</p>
         </div>
-        <button onClick={() => router.push("/admin/anime/manual")} className="admin-btn admin-btn-primary">
-          <i className="fa-solid fa-plus" style={{ fontSize: 12 }}></i>
-          Add Anime
-        </button>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            const { isConfirmed } = await Swal.fire({
+              title: "Konfirmasi",
+              text: "Jalankan worker pencarian massal 9anime di background? Proses ini memakan waktu jika antrean banyak.",
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonText: "Ya, Jalankan",
+              background: "var(--bg-card)",
+              color: "var(--text-primary)"
+            });
+            if (isConfirmed) {
+              try {
+                await adminService.triggerBatchMapping();
+                Swal.fire({ icon: "success", title: "Worker Dijalankan", text: "Proses pencarian link 9anime secara massal sedang berjalan di background.", background: "var(--bg-card)", color: "var(--text-primary)" });
+              } catch (err) {
+                Swal.fire({ icon: "error", title: "Error", text: err.response?.data?.message || err.message, background: "var(--bg-card)", color: "var(--text-primary)" });
+              }
+            }
+          }} className="admin-btn admin-btn-secondary">
+            <i className="fa-solid fa-rotate" style={{ fontSize: 12 }}></i>
+            Batch Map 9Anime
+          </button>
+          <button onClick={() => router.push("/admin/anime/manual")} className="admin-btn admin-btn-primary">
+            <i className="fa-solid fa-plus" style={{ fontSize: 12 }}></i>
+            Add Anime
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -270,7 +309,7 @@ export default function AdminAnimePage() {
                       <span className="text-[11px] font-semibold text-[var(--text-secondary)] capitalize">{anime.status || '—'}</span>
                     </td>
                     <td>
-                      {anime.mapping?.anilistId ? (
+                      {anime.mapping?.nineanimeId ? (
                         <span className="admin-badge" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}>
                           <i className="fa-solid fa-check" style={{ fontSize: 8 }}></i> Mapped
                         </span>

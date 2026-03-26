@@ -34,6 +34,7 @@ export default function ProfileHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [rawWatchHistory, setRawWatchHistory] = useState([]);
   const [readHistory, setReadHistory] = useState([]);
+  const [page, setPage] = useState(1);
 
   /**
    * LOGIC: Grouping History
@@ -55,6 +56,12 @@ export default function ProfileHistoryPage() {
       (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
     );
   }, [rawWatchHistory]);
+
+  const paginatedHistory = useMemo(() => {
+    const start = (page - 1) * 10;
+    const end = start + 10;
+    return watchHistory.slice(start, end);
+  }, [watchHistory, page]);
 
   const openWatchFromHistory = useCallback((item) => {
     const slug = item?.episode?.anime?.koleksi?.slug;
@@ -124,7 +131,7 @@ export default function ProfileHistoryPage() {
           />
         ) : (
           <div className="grid gap-4">
-            {watchHistory.map((item) => {
+            {paginatedHistory.map((item) => {
               const koleksi = item.episode?.anime?.koleksi;
               const isCompleted = item.isCompleted;
               
@@ -198,6 +205,30 @@ export default function ProfileHistoryPage() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {!loading && watchHistory.length > 10 && (
+          <div className="mt-8 flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-6 py-4">
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
+              Halaman {page} dari {Math.ceil(watchHistory.length / 10)}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[var(--accent)] hover:text-[var(--text-primary)] disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page * 10 >= watchHistory.length}
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[var(--accent)] hover:text-[var(--text-primary)] disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </section>

@@ -21,6 +21,11 @@ const meService = {
     return data;
   },
 
+  getWatchHistoryByEpisode: async (episodeId) => {
+    const { data } = await api.get(`/api/me/history/watch/${episodeId}`);
+    return data;
+  },
+
   saveWatchHistory: async (payload) => {
     const { data } = await api.post("/api/me/history/watch", payload);
     return data;

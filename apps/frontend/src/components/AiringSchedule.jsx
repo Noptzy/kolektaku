@@ -7,9 +7,10 @@ import animeService from "@/lib/animeApi";
 
 // Swiper imports
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { FreeMode, Mousewheel } from 'swiper/modules';
+import { FreeMode, Mousewheel, Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/free-mode';
+import 'swiper/css/navigation';
 
 const DayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const FullDayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -105,46 +106,66 @@ export default function AiringSchedule() {
         </div>
 
         {/* Swiper for Days */}
-        <div className="bg-[var(--bg-secondary)]/10 border-b border-[var(--border)] py-4 md:py-6 px-4">
-          <Swiper
-            onSwiper={setSwiperRef}
-            modules={[FreeMode, Mousewheel]}
-            spaceBetween={12}
-            slidesPerView={'auto'}
-            freeMode={true}
-            mousewheel={{ forceToAxis: true }}
-            className="date-swiper !overflow-visible"
-            breakpoints={{
-                320: { spaceBetween: 8 },
-                768: { spaceBetween: 12 }
-            }}
-          >
-            {scheduleDays.map((day) => (
-              <SwiperSlide key={day.dateKey} className="!w-auto">
-                <button
-                  onClick={() => {
-                      setActiveDay(day.dateKey);
-                      setShowAll(false);
-                  }}
-                  className={`flex flex-col items-center justify-center min-w-[100px] h-[75px] rounded-2xl border transition-all ${
-                    activeDay === day.dateKey
-                      ? "bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg shadow-[var(--accent-muted)] scale-105 z-10"
-                      : "bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50 hover:bg-[var(--bg-secondary)]/50"
-                  }`}
-                >
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${activeDay === day.dateKey ? "text-white/70" : "text-[var(--text-tertiary)]"}`}>
-                      {day.name}
-                  </span>
-                  <span className="text-lg font-extrabold leading-none mt-1">
-                      {day.date}
-                  </span>
-                  <span className={`text-[10px] font-medium ${activeDay === day.dateKey ? "text-white/80" : "text-[var(--text-tertiary)]"}`}>
-                      {day.month}
-                  </span>
-                </button>
-              </SwiperSlide>
-            ))}
-          </Swiper>
+        <div className="bg-[var(--bg-secondary)]/10 border-b border-[var(--border)] py-4 md:py-6 px-4 relative">
+          <div className="flex items-center gap-2">
+            {/* Left Arrow */}
+            <button className="schedule-prev-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+
+            <div className="flex-1 overflow-hidden">
+              <Swiper
+                onSwiper={setSwiperRef}
+                modules={[FreeMode, Mousewheel, Navigation]}
+                spaceBetween={12}
+                slidesPerView={'auto'}
+                freeMode={true}
+                mousewheel={{ forceToAxis: true }}
+                grabCursor={true}
+                simulateTouch={true}
+                navigation={{
+                  prevEl: '.schedule-prev-btn',
+                  nextEl: '.schedule-next-btn',
+                }}
+                className="date-swiper !overflow-visible"
+                breakpoints={{
+                    320: { spaceBetween: 8 },
+                    768: { spaceBetween: 12 }
+                }}
+              >
+                {scheduleDays.map((day) => (
+                  <SwiperSlide key={day.dateKey} className="!w-auto">
+                    <button
+                      onClick={() => {
+                          setActiveDay(day.dateKey);
+                          setShowAll(false);
+                      }}
+                      className={`flex flex-col items-center justify-center min-w-[100px] h-[75px] rounded-2xl border transition-all ${
+                        activeDay === day.dateKey
+                          ? "bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg shadow-[var(--accent-muted)] scale-105 z-10"
+                          : "bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50 hover:bg-[var(--bg-secondary)]/50"
+                      }`}
+                    >
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${activeDay === day.dateKey ? "text-white/70" : "text-[var(--text-tertiary)]"}`}>
+                          {day.name}
+                      </span>
+                      <span className="text-lg font-extrabold leading-none mt-1">
+                          {day.date}
+                      </span>
+                      <span className={`text-[10px] font-medium ${activeDay === day.dateKey ? "text-white/80" : "text-[var(--text-tertiary)]"}`}>
+                          {day.month}
+                      </span>
+                    </button>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+
+            {/* Right Arrow */}
+            <button className="schedule-next-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
         </div>
 
         {/* Schedule List Content */}

@@ -8,10 +8,11 @@ import meService from "@/lib/meApi";
 import Navbar from "@/components/Navbar";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
+import Swal from "sweetalert2";
 
 // Swiper
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, FreeMode } from 'swiper/modules';
+import { Navigation, FreeMode, Mousewheel } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/free-mode';
@@ -63,12 +64,16 @@ export default function AnimeDetailPage({ params }) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [detailRes, epsRes] = await Promise.all([
-          api.get(`/api/anime/${slug}`),
-          api.get(`/api/anime/${slug}/eps`),
-        ]);
+        const detailRes = await api.get(`/api/anime/${slug}`);
         setAnime(detailRes.data.data);
-        setEpisodes(epsRes.data.data || []);
+
+        try {
+          const epsRes = await api.get(`/api/anime/${slug}/eps`);
+          setEpisodes(epsRes.data.data || []);
+        } catch (epsErr) {
+          console.warn("Failed to fetch episodes:", epsErr);
+          setEpisodes([]);
+        }
       } catch (err) {
         console.error("Failed to fetch anime:", err);
       } finally {
@@ -123,7 +128,25 @@ export default function AnimeDetailPage({ params }) {
         setIsFavorite(true);
       }
     } catch (error) {
-      console.error("Failed to toggle favorite", error);
+      if (error.response?.status === 403) {
+        Swal.fire({
+          icon: "warning",
+          title: "Limit Favorit Tercapai",
+          text: error.response.data.message || "Silakan upgrade ke Premium untuk menyimpan lebih dari 10 anime favorit.",
+          showCancelButton: true,
+          confirmButtonText: "Upgrade Sekarang",
+          cancelButtonText: "Nanti Saja",
+          background: "var(--bg-card)",
+          color: "var(--text-primary)",
+          confirmButtonColor: "var(--accent)",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            router.push("/membership");
+          }
+        });
+      } else {
+        console.error("Failed to toggle favorite", error);
+      }
     } finally {
       setFavoriteLoading(false);
     }
@@ -242,7 +265,15 @@ export default function AnimeDetailPage({ params }) {
                 {episodes.length > 0 ? (
                   <button
                     type="button"
-                    onClick={() => router.push(`/anime/${slug}/eps/${episodes[episodes.length - 1]?.episodeNumber}`)}
+                    onClick={() => {
+                      if (!user) {
+                        if (typeof window !== "undefined") {
+                          window.dispatchEvent(new CustomEvent("open-login-modal"));
+                        }
+                        return;
+                      }
+                      router.push(`/anime/${slug}/eps/${episodes[episodes.length - 1]?.episodeNumber}`);
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] py-3 font-semibold text-white shadow-lg shadow-[var(--accent-muted)] transition hover:bg-[var(--accent-hover)] hover:-translate-y-0.5"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -302,9 +333,11 @@ export default function AnimeDetailPage({ params }) {
               )}
               
               <div className="flex items-center gap-3 text-sm">
-                <span className={`px-2.5 py-1 rounded-md font-semibold ${statusColor}`}>
-                  {detail?.status === 'FINISHED' ? 'Completed' : detail?.status === 'RELEASING' ? 'Airing' : detail?.status || 'Unknown'}
-                </span>
+                {detail?.status && detail.status !== "Unknown" && (
+                  <span className={`px-2.5 py-1 rounded-md font-semibold ${statusColor}`}>
+                    {detail.status === 'FINISHED' ? 'Completed' : detail.status === 'RELEASING' ? 'Airing' : detail.status}
+                  </span>
+                )}
                 {detail?.totalEpisodes && (
                   <span className="text-[var(--text-secondary)]">{detail.totalEpisodes} Episodes</span>
                 )}
@@ -351,11 +384,11 @@ export default function AnimeDetailPage({ params }) {
             <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
               <div>
                 <p className="text-xs text-[var(--text-tertiary)] mb-1">Source</p>
-                <p className="text-sm font-medium capitalize">{detail?.source?.toLowerCase() || "Unknown"}</p>
+                <p className="text-sm font-medium capitalize">{detail?.source?.toLowerCase() || "-"}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--text-tertiary)] mb-1">Format</p>
-                <p className="text-sm font-medium">{detail?.format || "Unknown"}</p>
+                <p className="text-sm font-medium">{detail?.format || "-"}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--text-tertiary)] mb-1">Rating</p>
@@ -364,7 +397,7 @@ export default function AnimeDetailPage({ params }) {
               <div>
                 <p className="text-xs text-[var(--text-tertiary)] mb-1">Premiered</p>
                 <p className="text-sm font-medium">
-                  {detail?.startDate ? new Date(detail.startDate).toLocaleDateString() : "Unknown"}
+                  {detail?.startDate ? new Date(detail.startDate).toLocaleDateString() : "-"}
                 </p>
               </div>
             </div>
@@ -431,6 +464,118 @@ export default function AnimeDetailPage({ params }) {
             </div>
           </div>
         )}
+
+        {/* Episodes Section */}
+        <div id="episodes" className="mt-16">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">Episodes</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-[var(--text-secondary)] font-medium">{episodes.length} Episodes</span>
+              {episodes.length > 1 && (
+                <button
+                  onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+                >
+                  <svg className={`h-3.5 w-3.5 transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Episode Range Tabs */}
+          {totalChunks > 1 && (
+            <div className="flex items-center gap-2 mb-4 relative w-full">
+              <button className="ep-prev-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30 z-10">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <Swiper
+                  modules={[FreeMode, Mousewheel, Navigation]}
+                  spaceBetween={8}
+                  slidesPerView={'auto'}
+                  freeMode={true}
+                  mousewheel={{ forceToAxis: true }}
+                  grabCursor={true}
+                  navigation={{ prevEl: '.ep-prev-btn', nextEl: '.ep-next-btn' }}
+                  className="!overflow-visible"
+                >
+                  {episodeChunks.map((chunk, idx) => (
+                    <SwiperSlide key={idx} className="!w-auto">
+                      <button
+                        onClick={() => setEpisodeRange(idx)}
+                        className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                          episodeRange === idx
+                            ? 'bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-muted)]'
+                            : 'border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {chunk.label}
+                      </button>
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </div>
+
+              <button className="ep-next-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30 z-10">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+          )}
+
+          {episodes.length === 0 ? (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-12 text-center">
+              <span className="text-3xl mb-3 block">📺</span>
+              <p className="text-[var(--text-secondary)] text-sm">Episodes not available yet</p>
+            </div>
+          ) : (
+            <div 
+              key={`${episodeRange}-${sortOrder}`} 
+              className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] divide-y divide-[var(--border)] overflow-hidden animate-fade-in-up"
+            >
+              {displayedEps.map((ep) => (
+                <button
+                  key={ep.episodeNumber}
+                  onClick={() => {
+                    if (!user) {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("open-login-modal"));
+                      }
+                      return;
+                    }
+                    router.push(`/anime/${slug}/eps/${ep.episodeNumber}`);
+                  }}
+                  className="group w-full flex items-center gap-4 px-4 py-3 text-left transition-all hover:bg-[var(--bg-card-hover)]"
+                >
+                  {/* Episode number badge */}
+                  <span className="shrink-0 flex items-center justify-center h-9 w-14 rounded-lg bg-[var(--accent-muted)] text-xs font-bold text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
+                    EP {ep.episodeNumber}
+                  </span>
+
+                  {/* Title */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
+                      {ep.title || `Episode ${ep.episodeNumber}`}
+                    </p>
+                  </div>
+
+                  {/* Sub badge */}
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                    Sub
+                  </span>
+
+                  {/* Play icon */}
+                  <svg className="shrink-0 h-4 w-4 text-[var(--text-tertiary)] group-hover:text-[var(--accent)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Relations */}
         {relations.length > 0 && (
@@ -631,87 +776,7 @@ export default function AnimeDetailPage({ params }) {
           </div>
         )}
 
-        {/* Episodes Section */}
-        <div className="mt-16">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">Episodes</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-[var(--text-secondary)] font-medium">{episodes.length} Episodes</span>
-              {episodes.length > 1 && (
-                <button
-                  onClick={() => setSortOrder(s => s === 'asc' ? 'desc' : 'asc')}
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
-                >
-                  <svg className={`h-3.5 w-3.5 transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                  {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Episode Range Tabs */}
-          {totalChunks > 1 && (
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-[var(--border)]">
-              {episodeChunks.map((chunk, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setEpisodeRange(idx)}
-                  className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                    episodeRange === idx
-                      ? 'bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-muted)]'
-                      : 'border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  {chunk.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {episodes.length === 0 ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-12 text-center">
-              <span className="text-3xl mb-3 block">📺</span>
-              <p className="text-[var(--text-secondary)] text-sm">Episodes not available yet</p>
-            </div>
-          ) : (
-            <div 
-              key={`${episodeRange}-${sortOrder}`} 
-              className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] divide-y divide-[var(--border)] overflow-hidden animate-fade-in-up"
-            >
-              {displayedEps.map((ep) => (
-                <button
-                  key={ep.episodeNumber}
-                  onClick={() => router.push(`/anime/${slug}/eps/${ep.episodeNumber}`)}
-                  className="group w-full flex items-center gap-4 px-4 py-3 text-left transition-all hover:bg-[var(--bg-card-hover)]"
-                >
-                  {/* Episode number badge */}
-                  <span className="shrink-0 flex items-center justify-center h-9 w-14 rounded-lg bg-[var(--accent-muted)] text-xs font-bold text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
-                    EP {ep.episodeNumber}
-                  </span>
-
-                  {/* Title */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
-                      {ep.title || `Episode ${ep.episodeNumber}`}
-                    </p>
-                  </div>
-
-                  {/* Sub badge */}
-                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                    Sub
-                  </span>
-
-                  {/* Play icon */}
-                  <svg className="shrink-0 h-4 w-4 text-[var(--text-tertiary)] group-hover:text-[var(--accent)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* End of Main Content */}
       </main>
     </div>
   );

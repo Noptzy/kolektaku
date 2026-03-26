@@ -7,11 +7,15 @@ import Swal from "sweetalert2";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+const STORAGE_KEY = "kolektaku_admin_vouchers_state";
+
 export default function AdminVouchersPage() {
   const [vouchers, setVouchers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY))?.page || 1; } catch { return 1; }
+  });
   const [totalPages, setTotalPages] = useState(1);
   
   // Modal states
@@ -49,6 +53,10 @@ export default function AdminVouchersPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ page }));
+  }, [page]);
 
   useEffect(() => {
     fetchData();

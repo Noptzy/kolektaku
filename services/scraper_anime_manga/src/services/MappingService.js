@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 const stringSimilarity = require('string-similarity');
 const { logger } = require('../config/logger');
 const { openBrowser, searchAnimeByName, scrapeAnimeDetails } = require('../scrape/anime/9anime');

@@ -228,8 +228,6 @@ function App() {
         });
       }
 
-      console.log(`Window ${windowStart}-${windowEnd}s: ✅ done via ${resData.engine || 'unknown'}`);
-
     } catch (e) {
       if (e.name === 'AbortError') {
         console.log(`Window ${windowStart}-${windowEnd}s: translation aborted.`);

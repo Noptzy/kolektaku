@@ -7,8 +7,17 @@ import api from "@/lib/api";
 import meService from "@/lib/meApi";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
+import ReportModal from "@/components/ReportModal";
+import EpisodeComments from "@/components/EpisodeComments";
+import Swal from "sweetalert2";
 
 const Player = dynamic(() => import("@/components/Player"), { ssr: false });
+
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, FreeMode, Mousewheel } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/free-mode';
 
 const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || "http://localhost:3002";
 const WINDOW_SIZE = 300; // 5 min translation windows
@@ -77,7 +86,7 @@ export default function EpisodeWatchPage({ params }) {
   const { slug, episodeNumber } = use(params);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const isPremium = true; // user?.roleId <= 2;
+  const isPremium = user?.roleId <= 2;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -89,6 +98,7 @@ export default function EpisodeWatchPage({ params }) {
   const [startAtSeconds, setStartAtSeconds] = useState(0);
   const [resumeCandidateSeconds, setResumeCandidateSeconds] = useState(0);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -96,6 +106,13 @@ export default function EpisodeWatchPage({ params }) {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`);
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     setStartAtSeconds(0);
@@ -111,38 +128,20 @@ export default function EpisodeWatchPage({ params }) {
 
     const checkResumeProgress = async () => {
       try {
-        const limit = 100;
-        const maxPagesToScan = 20;
-        let page = 1;
-        let totalPages = 1;
-        let matchedHistory = null;
+        const response = await meService.getWatchHistoryByEpisode(episodeId);
+        const watchHistory = response?.data;
 
-        while (!cancelled && page <= totalPages && page <= maxPagesToScan) {
-          const response = await meService.getWatchHistory({ page, limit });
-          const rows = getWatchHistoryRows(response);
-
-          matchedHistory = rows.find(
-            (row) => row?.episodeId === episodeId || row?.episode?.id === episodeId,
-          );
-
-          if (matchedHistory) {
-            break;
-          }
-
-          totalPages = Math.max(page, getTotalPages(response, page));
-          page += 1;
-        }
-
-        if (cancelled || !matchedHistory) {
+        if (cancelled || !watchHistory) {
           return;
         }
 
-        const rawResumeSeconds = Number(matchedHistory.watchTimeSeconds || 0);
+        const rawResumeSeconds = Number(watchHistory.watchTimeSeconds || 0);
         const resumeSeconds = Number.isFinite(rawResumeSeconds)
           ? Math.max(0, Math.floor(rawResumeSeconds))
           : 0;
 
-        if (resumeSeconds <= 30 || matchedHistory.isCompleted) {
+        // Don't show resume modal if watched less than 30s or already completed
+        if (resumeSeconds <= 30 || watchHistory.isCompleted) {
           return;
         }
 
@@ -354,7 +353,28 @@ export default function EpisodeWatchPage({ params }) {
       try {
         await meService.saveWatchHistory(payload);
       } catch (saveError) {
-        console.error("Failed to save watch history:", saveError);
+        if (saveError.response?.status === 403) {
+          if (!window._historyLimitShown) {
+            window._historyLimitShown = true;
+            Swal.fire({
+              icon: "warning",
+              title: "Limit History Tercapai",
+              text: saveError.response.data.message || "Silakan upgrade ke Premium untuk menonton lebih dari 30 judul anime.",
+              showCancelButton: true,
+              confirmButtonText: "Upgrade Sekarang",
+              cancelButtonText: "Nanti Saja",
+              background: "var(--bg-card)",
+              color: "var(--text-primary)",
+              confirmButtonColor: "var(--accent)",
+            }).then((result) => {
+              if (result.isConfirmed) {
+                router.push("/membership");
+              }
+            });
+          }
+        } else {
+          console.error("Failed to save watch history:", saveError);
+        }
       } finally {
         state.inFlight = false;
         const queued = state.queuedPayload;
@@ -368,7 +388,7 @@ export default function EpisodeWatchPage({ params }) {
         }
       }
     },
-    [data?.episode?.id],
+    [data?.episode?.id, router],
   );
 
   // ─── Time update handler (called from Player) ────────────────
@@ -679,12 +699,32 @@ export default function EpisodeWatchPage({ params }) {
         {/* Player + Info */}
         {!loading && !authLoading && !error && data && (
           <>
-            {/* Episode Title */}
-            <div className="mb-4">
+            {/* Episode Title & Actions */}
+            <div className="mb-4 flex items-start justify-between">
               <h1 className="text-xl md:text-2xl font-bold flex items-center flex-wrap gap-2 text-[var(--text-primary)]">
                 <span className="text-[var(--accent)]">EP {episodeNumber}</span>
                 {episodeTitle || `Episode ${episodeNumber}`}
               </h1>
+              <div className="flex gap-3 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent('open-login-modal'));
+                      }
+                      return;
+                    }
+                    setShowReportModal(true);
+                  }}
+                  className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-3 py-1.5 text-xs font-bold text-[var(--danger)] transition hover:bg-[var(--danger)]/20 flex items-center gap-1 shrink-0"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                  </svg>
+                  Lapor
+                </button>
+              </div>
             </div>
 
             {/* Video Player */}
@@ -898,21 +938,43 @@ export default function EpisodeWatchPage({ params }) {
                   <>
                     {/* Episode Range Tabs */}
                     {totalChunks > 1 && (
-                      <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-[var(--border)]">
-                        {episodeChunks.map((chunk, idx) => (
-                          <button
-                            type="button"
-                            key={chunk.label}
-                            onClick={() => setEpisodeRange(idx)}
-                            className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                              episodeRange === idx
-                                ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-muted)]"
-                                : "border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
-                            }`}
+                      <div className="flex items-center gap-2 mb-4 relative w-full">
+                        <button type="button" className="ep-prev-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30 z-10">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+          
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <Swiper
+                            modules={[FreeMode, Mousewheel, Navigation]}
+                            spaceBetween={8}
+                            slidesPerView={'auto'}
+                            freeMode={true}
+                            mousewheel={{ forceToAxis: true }}
+                            grabCursor={true}
+                            navigation={{ prevEl: '.ep-prev-btn', nextEl: '.ep-next-btn' }}
+                            className="!overflow-visible"
                           >
-                            {chunk.label}
-                          </button>
-                        ))}
+                            {episodeChunks.map((chunk, idx) => (
+                              <SwiperSlide key={chunk.label} className="!w-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => setEpisodeRange(idx)}
+                                  className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                                    episodeRange === idx
+                                      ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-muted)]"
+                                      : "border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+                                  }`}
+                                >
+                                  {chunk.label}
+                                </button>
+                              </SwiperSlide>
+                            ))}
+                          </Swiper>
+                        </div>
+          
+                        <button type="button" className="ep-next-btn shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-30 z-10">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                        </button>
                       </div>
                     )}
 
@@ -980,6 +1042,23 @@ export default function EpisodeWatchPage({ params }) {
                 );
               })()}
             </div>
+
+            {/* Episode Comments */}
+            {data?.episode?.id && (
+              <div className="mt-12">
+                <EpisodeComments episodeId={data.episode.id} />
+              </div>
+            )}
+            
+            {/* Report Modal */}
+            {data?.episode?.id && (
+              <ReportModal
+                isOpen={showReportModal}
+                episodeId={data.episode.id}
+                episodeTitle={`EP ${episodeNumber} - ${episodeTitle || ''}`}
+                onClose={() => setShowReportModal(false)}
+              />
+            )}
           </>
         )}
       </main>

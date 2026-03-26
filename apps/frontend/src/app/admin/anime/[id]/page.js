@@ -163,6 +163,30 @@ export default function AdminAnimeDetailPage() {
     try { await adminService.deleteEpisode(epId); fetchAnime(); } catch { /* ignore */ }
   };
 
+  const handleDeleteAllEpisodes = async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: "Hapus Semua Episode?",
+      text: "Seluruh episode dan source streaming akan dihapus permanen. Tindakan ini tidak bisa dibatalkan!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Hapus Semua!",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#ef4444",
+      background: "var(--bg-card)",
+      color: "var(--text-primary)"
+    });
+
+    if (isConfirmed) {
+      try {
+        await adminService.deleteAllEpisodes(anime.animeDetail.id);
+        Swal.fire({ icon: "success", title: "Berhasil", text: "Semua episode telah dihapus", background: "var(--bg-card)", color: "var(--text-primary)" });
+        fetchAnime();
+      } catch (err) {
+        Swal.fire({ icon: "error", title: "Gagal", text: err.response?.data?.message || "Gagal menghapus semua episode", background: "var(--bg-card)", color: "var(--text-primary)" });
+      }
+    }
+  };
+
   // ─── Source CRUD ───
   const openAddSrc = (episodeId) => { setSrcEpisodeId(episodeId); setEditingSrc(null); setSrcForm({ serverName: "", audio: "sub", streamType: "hls", urlSource: "", externalId: "" }); setSrcModal(true); };
   const openEditSrc = (src) => { setSrcEpisodeId(null); setEditingSrc(src); setSrcForm({ serverName: src.serverName || "", audio: src.audio || "sub", streamType: src.streamType || "hls", urlSource: src.urlSource || "", externalId: src.externalId || "" }); setSrcModal(true); };
@@ -315,8 +339,9 @@ export default function AdminAnimeDetailPage() {
       {/* TAB: Episodes */}
       {tab === "episodes" && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button onClick={openAddEp} className="rounded-xl bg-[var(--accent)] px-4 py-2 font-bold text-white transition hover:bg-[var(--accent-hover)]">+ Tambah Episode</button>
+          <div className="flex justify-end gap-2">
+            <button onClick={handleDeleteAllEpisodes} className="rounded-xl border border-[var(--danger)] bg-[var(--danger)]/10 px-4 py-2 text-sm font-bold text-[var(--danger)] transition hover:bg-[var(--danger)]/20">Hapus Semua</button>
+            <button onClick={openAddEp} className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-bold text-white transition hover:bg-[var(--accent-hover)]">+ Tambah Episode</button>
           </div>
 
           {episodes.length === 0 ? (

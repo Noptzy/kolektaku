@@ -1,4 +1,4 @@
-require("dotenv").config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const express = require("express");
 const cors = require("cors");
 const logger = require("./utils/logger");
@@ -27,7 +27,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT;
+const PORT = process.env.STREAM_RESOLVER_PORT || 5790;
 app.listen(PORT, () => {
   logger.info(`Stream Resolver server started on port ${PORT}`);
 

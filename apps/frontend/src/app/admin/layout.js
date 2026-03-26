@@ -1,12 +1,14 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AdminSidebar from "@/components/admin/Sidebar";
 
 export default function AdminLayout({ children }) {
   const { user, loading, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -44,6 +46,10 @@ export default function AdminLayout({ children }) {
           --admin-radius: 14px;
           --admin-radius-sm: 10px;
           --admin-radius-xs: 8px;
+          --accent-rgb: 99,102,241;
+        }
+        [data-theme="light"] .admin-shell {
+          --accent-rgb: 79,70,229;
         }
         .admin-card {
           background: var(--bg-card);
@@ -188,7 +194,17 @@ export default function AdminLayout({ children }) {
           <header className="flex h-14 items-center border-b border-[var(--border)] bg-[var(--bg-card)] px-6 md:px-8" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <h1 className="text-base font-bold text-[var(--text-primary)] md:hidden pl-10">Admin</h1>
             <div className="ml-auto flex items-center gap-3 relative">
-              <button 
+              <button
+                onClick={toggleTheme}
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                className="flex h-8 w-8 items-center justify-center rounded-lg transition-all"
+                style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} style={{ fontSize: 13 }}></i>
+              </button>
+              <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 focus:outline-none"
               >

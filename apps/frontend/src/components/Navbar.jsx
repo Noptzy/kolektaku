@@ -101,6 +101,7 @@ function NavbarContent() {
             >
               Explore
             </button>
+
             <button
               type="button"
               onClick={() => router.push("/membership")}
@@ -284,6 +285,7 @@ function NavbarContent() {
                 <span className="text-xl">📺</span>
                 <span className="font-bold text-[var(--text-primary)]">Explore</span>
               </button>
+
             </div>
           </div>
         </div>

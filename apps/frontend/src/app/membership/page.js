@@ -164,6 +164,21 @@ function MembershipContent() {
     setProcessingPlanId(plan.id);
     try {
       const code = voucherResult?.valid ? voucherCode.trim() : "";
+      
+      // Check if voucher is restricted to a specific plan
+      if (voucherResult?.valid && voucherResult.plan && voucherResult.plan.id !== plan.id) {
+        Swal.fire({
+          icon: "warning",
+          title: "Voucher Tidak Cocok",
+          text: `Voucher ini hanya berlaku untuk paket: ${voucherResult.plan.title}. Silakan gunakan paket yang sesuai atau hapus kode voucher.`,
+          background: "var(--bg-card)",
+          color: "var(--text-primary)",
+          confirmButtonColor: "var(--accent)",
+        });
+        setProcessingPlanId(null);
+        return;
+      }
+
       const res = await createPayment(plan.id, code);
       const data = res.data || res;
       
@@ -233,6 +248,8 @@ function MembershipContent() {
     () => [
       { feature: "Kolektaku AI Subtitle Indonesia", basic: true, premium: true },
       { feature: "Resolusi Streaming", basic: "720p", premium: "1080p" },
+      { feature: "Limit History Anime", basic: "30 Judul", premium: "Unlimited" },
+      { feature: "Limit Favorit Anime", basic: "10 Judul", premium: "Unlimited" },
       { feature: "Tanpa Iklan", basic: false, premium: true },
       { feature: "Unlimited Streaming", basic: false, premium: true },
       { feature: "Notifikasi update anime favorit", basic: true, premium: true },
@@ -256,6 +273,14 @@ function MembershipContent() {
               <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)] md:text-base">
                 Nikmati streaming tanpa batas, kualitas lebih tinggi, dan fitur premium lain untuk pengalaman nonton yang lebih nyaman.
               </p>
+              {isPremium && (
+                <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 font-semibold shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+                  <i className="fa-solid fa-circle-info"></i>
+                  <span>
+                    Sisa hari langganan akan otomatis diakumulasi jika Anda memperpanjang Paket.
+                  </span>
+                </div>
+              )}
             </div>
 
             {hasTrialButton && (
@@ -286,14 +311,19 @@ function MembershipContent() {
                 <div key={item} className="h-64 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]" />
               ))
             : plans.map((plan) => (
-                <article key={plan.id} className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-lg">
+                <article key={plan.id} className={`relative rounded-2xl border bg-[var(--bg-card)] p-6 shadow-lg transition-all ${voucherResult?.valid && voucherResult.plan?.id === plan.id ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/50' : 'border-[var(--border)]'}`}>
+                  {voucherResult?.valid && voucherResult.plan?.id === plan.id && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
+                      Voucher Cocok ✨
+                    </div>
+                  )}
                   <div className="mb-4 flex items-start justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-[var(--text-tertiary)]">Plan</p>
                       <h2 className="text-2xl font-bold">{plan.title || "Premium"}</h2>
                     </div>
                     <span className="rounded-full bg-[var(--accent)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">
-                      {plan.durationDays || 30} hari
+                      {(plan.durationDays === null || plan.durationDays >= 999) ? "Lifetime" : `${plan.durationDays} hari`}
                     </span>
                   </div>
 
@@ -307,9 +337,9 @@ function MembershipContent() {
                     type="button"
                     onClick={() => handleSubscribe(plan)}
                     disabled={!user || processingPlanId === plan.id}
-                    className="w-full rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${voucherResult?.valid && voucherResult.plan?.id === plan.id ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'}`}
                   >
-                    {!user ? "Login untuk Berlangganan" : processingPlanId === plan.id ? "Memproses..." : "Lanjut Checkout"}
+                    {!user ? "Login untuk Berlangganan" : processingPlanId === plan.id ? "Memproses..." : isPremium ? "Perpanjang Premium" : "Lanjut Checkout"}
                   </button>
                 </article>
               ))}
@@ -339,7 +369,14 @@ function MembershipContent() {
 
             {voucherResult && (
               <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${voucherResult.valid ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"}`}>
-                {voucherResult.message || (voucherResult.valid ? "Voucher valid" : "Voucher invalid")}
+                <div className="flex items-center justify-between">
+                  <span>{voucherResult.message || (voucherResult.valid ? "Voucher valid" : "Voucher invalid")}</span>
+                  {voucherResult.valid && voucherResult.plan && (
+                    <span className="rounded-lg bg-emerald-500/20 px-2 py-1 text-[10px] font-bold uppercase ring-1 ring-emerald-500/30">
+                      Khusus Paket: {voucherResult.plan.title}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -359,7 +396,14 @@ function MembershipContent() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold">{voucher.code}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">Diskon {voucher.discountPercent}%</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-[var(--text-secondary)]">Diskon {voucher.discountPercent}%</p>
+                          {voucher.plan && (
+                            <span className="text-[9px] font-bold uppercase text-[var(--accent)] bg-[var(--accent)]/10 px-1.5 py-0.5 rounded border border-[var(--accent)]/20">
+                              {voucher.plan.title} Only
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button
                         type="button"

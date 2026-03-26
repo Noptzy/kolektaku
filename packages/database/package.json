@@ -5,14 +5,22 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "generate": "prisma generate"
+    "generate": "dotenv -e ../../.env -- prisma generate",
+    "db:push": "dotenv -e ../../.env -- prisma db push",
+    "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "db:seed": "dotenv -e ../../.env -- node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "^7.4.2"
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.4.2",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
     "prisma": "^7.4.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   }
 }

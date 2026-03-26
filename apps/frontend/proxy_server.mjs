@@ -155,7 +155,8 @@ async function translateWithBing(text, from, to) {
     return result.translation;
   }
   const lines = text.split("\n");
-  let chunks = [], current = "";
+  let chunks = [],
+    current = "";
   for (const line of lines) {
     if ((current + "\n" + line).length > MAX && current) {
       chunks.push(current);
@@ -170,7 +171,9 @@ async function translateWithBing(text, from, to) {
       try {
         const r = await bingTranslate(chunk, from || "en", to || "id");
         return r.translation;
-      } catch { return chunk; }
+      } catch {
+        return chunk;
+      }
     }),
   );
   return results.join("\n");
@@ -181,13 +184,15 @@ async function translateWithMyMemory(text, from, to) {
   const MAX = 490;
   if (text.length <= MAX) {
     const r = await axios.get("https://api.mymemory.translated.net/get", {
-      params: { q: text, langpair: langPair }, timeout: 15000,
+      params: { q: text, langpair: langPair },
+      timeout: 15000,
     });
     if (r.data?.responseData) return r.data.responseData.translatedText;
     throw new Error("Empty response");
   }
   const lines = text.split("\n");
-  let chunks = [], current = "";
+  let chunks = [],
+    current = "";
   for (const line of lines) {
     if ((current + "\n" + line).length > MAX && current) {
       chunks.push(current);
@@ -201,10 +206,13 @@ async function translateWithMyMemory(text, from, to) {
     chunks.map(async (chunk) => {
       try {
         const r = await axios.get("https://api.mymemory.translated.net/get", {
-          params: { q: chunk, langpair: langPair }, timeout: 15000,
+          params: { q: chunk, langpair: langPair },
+          timeout: 15000,
         });
         return r.data?.responseData?.translatedText || chunk;
-      } catch { return chunk; }
+      } catch {
+        return chunk;
+      }
     }),
   );
   return results.join("\n");
@@ -234,7 +242,10 @@ app.post("/translate-google", async (req, res) => {
   if (cached) return res.json({ text: cached, engine: "cache" });
 
   const engines = [
-    { name: "Google-Direct", fn: () => translateWithGoogleDirect(text, from, to) },
+    {
+      name: "Google-Direct",
+      fn: () => translateWithGoogleDirect(text, from, to),
+    },
     { name: "Bing", fn: () => translateWithBing(text, from, to) },
     { name: "MyMemory", fn: () => translateWithMyMemory(text, from, to) },
   ];
@@ -249,7 +260,8 @@ app.post("/translate-google", async (req, res) => {
   for (const result of settled) {
     if (result.status === "fulfilled") {
       let { text: translated, engine } = result.value;
-      if ((!to || to === "id") && translated) translated = applyInformalStyle(translated);
+      if ((!to || to === "id") && translated)
+        translated = applyInformalStyle(translated);
       translationCache.set(cacheKey, translated);
       console.log(`[${engine}] ✅ ${translated.substring(0, 60)}...`);
       return res.json({ text: translated, engine });
@@ -269,7 +281,8 @@ app.get("/proxy", async (req, res) => {
       headers: {
         Referer: "https://rapid-cloud.co/",
         Origin: "https://rapid-cloud.co",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
       },
     });
 
@@ -288,7 +301,11 @@ app.get("/proxy", async (req, res) => {
 });
 
 app.get("/proxy-status", (req, res) => {
-  res.json({ enabled: proxyEnabled, count: proxyList.length, proxies: proxyList });
+  res.json({
+    enabled: proxyEnabled,
+    count: proxyList.length,
+    proxies: proxyList,
+  });
 });
 
 app.listen(PORT, "0.0.0.0", async () => {

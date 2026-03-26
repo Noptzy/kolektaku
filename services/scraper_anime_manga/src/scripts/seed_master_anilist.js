@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 const prisma = require('../config/prisma');
 
 const { fetchAniListPage, transformMedia, upsertMedia, CONFIG, isNsfwCheck, buildQuery } = require('../seeds/seedAnilist');
@@ -15,7 +15,7 @@ async function seedMasterAnilist() {
     
     for (let page = CONFIG.START_PAGE; page <= CONFIG.MAX_PAGE; page++) {
         const variables = { page, perPage: CONFIG.PER_PAGE };
-        const pageData = await fetchAniListPage(query, variables, 3);
+        const pageData = await fetchAniListPage(query, variables, 15);
         
         if (!pageData || !pageData.media || pageData.media.length === 0) {
             console.log(`Page ${page} is empty. Stopping.`);

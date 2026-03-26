@@ -113,6 +113,21 @@ export const animeService = {
     return data;
   },
 
+  getRandomAnime: async (limit = 10) => {
+    const { data } = await api.get(`/api/anime/random?limit=${limit}`);
+    return data;
+  },
+
+  getRecentlyUpdated: async (limit = 12) => {
+    const { data } = await api.get(`/api/anime/recently-updated?limit=${limit}`);
+    return data;
+  },
+
+  getMostWatched: async (limit = 12) => {
+    const { data } = await api.get(`/api/anime/most-watched?limit=${limit}`);
+    return data;
+  },
+
   getAiringSchedules: async () => {
     const { data } = await api.get("/api/schedules");
     return data;
@@ -120,6 +135,11 @@ export const animeService = {
 
   triggerAiringScheduleSync: async () => {
     const { data } = await api.post("/api/admin/schedules/fetch");
+    return data;
+  },
+
+  getRecommendations: async (limit = 12) => {
+    const { data } = await api.get(`/api/anime/recommendations?limit=${limit}`);
     return data;
   },
 };

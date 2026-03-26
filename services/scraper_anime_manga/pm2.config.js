@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 
 const workerTotalFromEnv = Number.parseInt(process.env.WORKER_TOTAL || '5', 10);
 const workerTotal = Number.isFinite(workerTotalFromEnv) && workerTotalFromEnv > 0
@@ -7,27 +7,9 @@ const workerTotal = Number.isFinite(workerTotalFromEnv) && workerTotalFromEnv > 
 
 module.exports = {
     apps: [
-        // ─── Master Anilist Seeder (run once manually) ───
+        // ─── Phase 1: 9anime Mapping Seeders ───
         {
-            name: 'kolektaku-phase1-master-anilist',
-            script: 'src/scripts/seed_master_anilist.js',
-            exec_mode: 'fork',
-            instances: 1,
-            autorestart: false,
-            watch: false,
-            env: {
-                NODE_ENV: process.env.NODE_ENV || 'production',
-                WORKER_TOTAL: String(workerTotal),
-            },
-            log_date_format: 'YYYY-MM-DD HH:mm:ss',
-            error_file: 'logs/pm2-phase1-master-error.log',
-            out_file: 'logs/pm2-phase1-master-out.log',
-            merge_logs: true,
-        },
-
-        // ─── Phase 1 Worker: 9anime Seed (5 instances) ───
-        {
-            name: 'kolektaku-phase1-worker-9anime',
+            name: 'seed-9anime',
             script: 'src/scripts/seed_worker_9anime.js',
             exec_mode: 'cluster',
             instances: workerTotal,
@@ -37,20 +19,28 @@ module.exports = {
             env: {
                 NODE_ENV: process.env.NODE_ENV || 'production',
                 WORKER_TOTAL: String(workerTotal),
-                PREMIUM_PROXIES: process.env.PREMIUM_PROXIES || '',
-                ENABLE_PREMIUM_PROXY: process.env.ENABLE_PREMIUM_PROXY || '0',
-                USE_CLOUDFLARE_DNS: '1',
-            },
-            env_development: {
-                NODE_ENV: 'development',
-                WORKER_TOTAL: String(workerTotal),
-                PREMIUM_PROXIES: process.env.PREMIUM_PROXIES || '',
-                ENABLE_PREMIUM_PROXY: process.env.ENABLE_PREMIUM_PROXY || '0',
-                USE_CLOUDFLARE_DNS: '1',
             },
             log_date_format: 'YYYY-MM-DD HH:mm:ss',
-            error_file: 'logs/pm2-phase1-worker-error.log',
-            out_file: 'logs/pm2-phase1-worker-out.log',
+            error_file: 'logs/pm2-seed-9anime-error.log',
+            out_file: 'logs/pm2-seed-9anime-out.log',
+            merge_logs: true,
+        },
+        // ─── Episode Sync Workers (5 instances via PM2 cluster) ───
+        {
+            name: 'seed-episodes',
+            script: 'src/scripts/seed_episodes_batch.js',
+            exec_mode: 'cluster',
+            instances: workerTotal,
+            autorestart: false,
+            watch: false,
+            max_memory_restart: '1G',
+            env: {
+                NODE_ENV: process.env.NODE_ENV || 'production',
+                WORKER_TOTAL: String(workerTotal),
+            },
+            log_date_format: 'YYYY-MM-DD HH:mm:ss',
+            error_file: 'logs/pm2-seed-episodes-error.log',
+            out_file: 'logs/pm2-seed-episodes-out.log',
             merge_logs: true,
         },
     ],

@@ -13,6 +13,22 @@ enum ProviderType {
   @@map("provider_type")
 }
 
+enum ReportCategory {
+  wrong_episode
+  broken_video
+  wrong_subtitle
+  missing_subtitle
+  other
+  @@map("report_category")
+}
+
+enum ReportStatus {
+  pending
+  resolved
+  dismissed
+  @@map("report_status")
+}
+
 enum TransactionStatus {
   pending
   success
@@ -125,6 +141,10 @@ model User {
   broadcasts     AdminBroadcast[]
   premiumTrial   PremiumTrial?
   voucherUsages  VoucherUsage[]
+  
+  episodeReports EpisodeReport[]
+  episodeComments EpisodeComment[]
+  chatMessages   ChatMessage[]
 
   @@index([roleId])
   @@index([email])
@@ -428,8 +448,12 @@ model Episode {
   watchHistories UserWatchHistory[]
   notifications  UserNotification[]
 
+  reports        EpisodeReport[]
+  comments       EpisodeComment[]
+
   @@index([animeId])
   @@index([animeId, episodeNumber(sort: Desc)])
+  @@unique([animeId, episodeNumber])
   @@map("episodes")
 }
 
@@ -448,6 +472,7 @@ model EpisodeSource {
   episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
 
   @@index([episodeId])
+  @@unique([episodeId, serverName, audio])
   @@map("episode_sources")
 }
 
@@ -706,4 +731,50 @@ model AiringSchedule {
   @@index([koleksiId, airingAt])
   @@index([isScraped])
   @@map("airing_schedules")
+}
+
+model EpisodeReport {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  episodeId  String         @map("episode_id") @db.Uuid
+  category   ReportCategory
+  message    String?        @db.Text
+  status     ReportStatus   @default(pending)
+  resolvedAt DateTime?      @map("resolved_at")
+  createdAt  DateTime?      @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([episodeId])
+  @@index([status])
+  @@map("episode_reports")
+}
+
+model EpisodeComment {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  episodeId String    @map("episode_id") @db.Uuid
+  content   String    @db.Text
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([episodeId, createdAt])
+  @@map("episode_comments")
+}
+
+model ChatMessage {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  content   String    @db.Text
+  createdAt DateTime? @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("chat_messages")
 }

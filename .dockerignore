@@ -1,0 +1,17 @@
+node_modules
+.git
+.env
+everything-claude-code
+docs
+.pnpm-store
+CLAUDE.MD
+.claude
+**/.next
+**/dist
+**/out
+**/npm-debug.log
+**/yarn-error.log
+**/.cache
+.DS_Store
+Thumbs.db
+[ARTIFACT: *]

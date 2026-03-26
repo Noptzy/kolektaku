@@ -4,10 +4,14 @@ import { useState, useEffect } from "react";
 import adminService from "@/lib/adminApi";
 import Swal from "sweetalert2";
 
+const STORAGE_KEY = "kolektaku_admin_transactions_state";
+
 export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY))?.page || 1; } catch { return 1; }
+  });
   const [totalPages, setTotalPages] = useState(1);
 
   const fetchTransactions = async (page = 1) => {
@@ -29,6 +33,10 @@ export default function AdminTransactionsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ page: currentPage }));
+  }, [currentPage]);
 
   useEffect(() => {
     fetchTransactions(currentPage);

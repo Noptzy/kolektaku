@@ -251,19 +251,17 @@ export default function ProfileOverviewPage() {
                 <p className="mt-1 text-sm text-[var(--text-secondary)] line-clamp-2">Lanjutkan tontonan episode terakhirmu dengan cepat.</p>
               </Link>
 
-              <Link href="/profile/notifications" className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 transition-all hover:-translate-y-1 hover:border-[var(--accent)]/40 hover:bg-[var(--bg-primary)] hover:shadow-lg relative">
+              <Link href="/profile/notifications" className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 transition-all hover:-translate-y-1 hover:border-[var(--accent)]/40 hover:bg-[var(--bg-primary)] hover:shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
                       <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
                     </svg>
                   </div>
+                  <span className={`text-xl font-black ${counts.unread > 0 ? "text-[var(--danger)] animate-pulse" : "text-[var(--text-primary)]"}`}>
+                    {counts.notifications}
+                  </span>
                 </div>
-                {counts.unread > 0 && (
-                  <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--danger)] text-xs font-bold text-white shadow-lg animate-pulse">
-                    {counts.unread}
-                  </div>
-                )}
                 <h3 className="mt-4 text-lg font-bold text-[var(--text-primary)]">Notifications</h3>
                 <p className="mt-1 text-sm text-[var(--text-secondary)] line-clamp-2">Pemberitahuan episode rilis dan pengumuman.</p>
               </Link>
@@ -278,6 +276,17 @@ export default function ProfileOverviewPage() {
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-[var(--text-primary)]">Billing & Invoices</h3>
                 <p className="mt-1 text-sm text-[var(--text-secondary)] line-clamp-2">Riwayat transaksi Premium dan status kedaluwarsa.</p>
+              </Link>
+              <Link href="/profile/reports" className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 transition-all hover:-translate-y-1 hover:border-[var(--accent)]/40 hover:bg-[var(--bg-primary)] hover:shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a15.26 15.26 0 0 1 9.14 0l3.172.793c.392.098.682.415.802.823.11.374.013.774-.249 1.055A15.26 15.26 0 0 1 3 15Z" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-[var(--text-primary)]">Laporan Saya</h3>
+                <p className="mt-1 text-sm text-[var(--text-secondary)] line-clamp-2">Pantau status laporan episode yang kamu kirim.</p>
               </Link>
             </div>
           </section>

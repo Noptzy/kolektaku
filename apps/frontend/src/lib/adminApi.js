@@ -11,7 +11,7 @@ export const adminService = {
     return data;
   },
   assignMembership: async (userId, planId) => {
-    const { data } = await api.post("/api/users/assign-membership", { userId, planId });
+    const { data } = await api.post(`/api/users/${userId}/membership`, { planId });
     return data;
   },
   deleteUser: async (id) => {
@@ -44,6 +44,10 @@ export const adminService = {
     const { data } = await api.post(`/api/admin/anime/${id}/scrape`, { type });
     return data;
   },
+  triggerBatchMapping: async () => {
+    const { data } = await api.post("/api/admin/anime/batch-map");
+    return data;
+  },
   manualAddAnime: async (payload) => {
     const { data } = await api.post("/api/admin/anime/manual-add", payload);
     return data;
@@ -56,6 +60,10 @@ export const adminService = {
   },
   createEpisode: async (animeDetailId, payload) => {
     const { data } = await api.post(`/api/admin/anime-detail/${animeDetailId}/episodes`, payload);
+    return data;
+  },
+  deleteAllEpisodes: async (animeDetailId) => {
+    const { data } = await api.delete(`/api/admin/anime-detail/${animeDetailId}/episodes`);
     return data;
   },
   updateEpisode: async (episodeId, payload) => {
@@ -132,6 +140,14 @@ export const adminService = {
   },
   manualConnectMapping: async (id, koleksiId) => {
     const { data } = await api.post(`/api/admin/mappings/${id}/manual`, { koleksiId });
+    return data;
+  },
+  bulkApproveMapping: async (items) => {
+    const { data } = await api.post("/api/admin/mappings/bulk-approve", { items });
+    return data;
+  },
+  bulkIgnoreMapping: async (mappingIds) => {
+    const { data } = await api.post("/api/admin/mappings/bulk-ignore", { mappingIds });
     return data;
   },
 
