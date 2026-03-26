@@ -1,15 +1,36 @@
 const ALLOWED_ORIGINS = [
   "https://kolektaku.biz.id",
   "https://www.kolektaku.biz.id",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173"
 ];
 
-const SPOOF_HEADERS = {
-  Referer: "https://rapid-cloud.co/",
-  Origin: "https://rapid-cloud.co",
+// ── CDN Referer Mapping ──────────────────────────────────────────────────────
+const CDN_REFERER_MAP = [
+  { pattern: /rapid-cloud\.co|rabbitstream\.net/, referer: "https://rapid-cloud.co/" },
+  { pattern: /megacloud\.tv|megacloud\.blog/, referer: "https://megacloud.tv/" },
+  { pattern: /bunnycdn|cloudflarestorage/, referer: "https://megacloud.tv/" },
+  // Dynamic CDN hostnames (stormshade84.live, sunburst93.live, clearskyline88.online, etc.)
+  { pattern: /\w+\d+\.(live|online|xyz)/, referer: "https://rapid-cloud.co/" },
+];
+
+function getRefererForUrl(url) {
+  for (const { pattern, referer } of CDN_REFERER_MAP) {
+    if (pattern.test(url)) return referer;
+  }
+  return "https://rapid-cloud.co/";
+}
+
+const BASE_HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
   Accept: "*/*",
   "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "identity",
+  "Sec-Ch-Ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+  "Sec-Ch-Ua-Mobile": "?0",
+  "Sec-Ch-Ua-Platform": '"Windows"',
 };
 
 function getCorsHeaders(requestOrigin) {
@@ -19,8 +40,8 @@ function getCorsHeaders(requestOrigin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Range",
-    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Range, If-Modified-Since",
+    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Content-Type, Accept-Ranges",
   };
 }
 
@@ -126,8 +147,18 @@ async function handleProxy(searchParams, corsHeaders) {
     return new Response("Domain not allowed", { status: 403, headers: corsHeaders });
   }
 
+  // Smart referer: client override > CDN map > default rapid-cloud
+  const refererParam = searchParams.get("referer");
+  const autoReferer = getRefererForUrl(targetUrl);
+  const finalReferer = refererParam || autoReferer;
+  const spoofHeaders = {
+    ...BASE_HEADERS,
+    Referer: finalReferer,
+    Origin: new URL(finalReferer).origin,
+  };
+
   const upstream = await fetch(targetUrl, {
-    headers: SPOOF_HEADERS,
+    headers: spoofHeaders,
     cf: {
       cacheTtl: targetUrl.includes(".ts") ? 3600 : 60,
       cacheEverything: true,

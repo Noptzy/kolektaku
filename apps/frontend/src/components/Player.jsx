@@ -76,14 +76,43 @@ function buildSubtitleCSS(style, isMobile = false) {
   };
 }
 
-/** Proxy all HLS requests through the proxy server */
+const CDN_REFERER_MAP = [
+  { pattern: /rapid-cloud\.co|rabbitstream\.net/, referer: "https://rapid-cloud.co/" },
+  { pattern: /megacloud\.tv|megacloud\.blog/, referer: "https://megacloud.tv/" },
+  // Dynamic CDN hostnames from megacloud/rapid-cloud ecosystem
+  { pattern: /rainveil\d*\.xyz/, referer: "https://megacloud.tv/" },
+  { pattern: /stormshade\d*\.live/, referer: "https://megacloud.tv/" },
+  { pattern: /sunburst\d*\.live/, referer: "https://megacloud.tv/" },
+  { pattern: /cloudflarestorage|bunnycdn/, referer: "https://megacloud.tv/" },
+  // Catch-all for unknown .live/.xyz CDN hosts (likely same ecosystem)
+  { pattern: /\.\w+\d+\.live/, referer: "https://megacloud.tv/" },
+  { pattern: /\.\w+\d+\.xyz/, referer: "https://megacloud.tv/" },
+];
+
+function getRefererForUrl(url) {
+  for (const { pattern, referer } of CDN_REFERER_MAP) {
+    if (pattern.test(url)) return referer;
+  }
+  return "https://megacloud.tv/"; // Default to megacloud instead of null
+}
+
+/** Proxy all HLS requests through the Next.js API route (same-origin, Node.js)
+ *  This avoids Cloudflare-to-Cloudflare blocking that happens with CF Workers */
 class ProxyLoader extends Hls.DefaultConfig.loader {
   constructor(config) {
     super(config);
     const load = this.load.bind(this);
     this.load = (context, config, callbacks) => {
       const originalUrl = context.url;
-      const proxyUrl = `${PROXY_URL}/proxy?url=${encodeURIComponent(originalUrl)}`;
+
+      // YouTube URLs are IP-bound — proxying breaks the signature
+      if (originalUrl.includes("googlevideo.com") || originalUrl.includes("youtube.com")) {
+        load(context, config, callbacks);
+        return;
+      }
+
+      // Use same-origin Next.js API route for streaming (avoids CF-to-CF block)
+      const proxyUrl = `/proxy?url=${encodeURIComponent(originalUrl)}`;
       const newContext = { ...context, url: proxyUrl };
       const newCallbacks = {
         ...callbacks,
@@ -336,7 +365,7 @@ export default function Player({
         if (isIndo) setIsSubtitleLoading(true);
 
         const url = activeSub.file.startsWith("http")
-          ? `${PROXY_URL}/proxy?url=${encodeURIComponent(activeSub.file)}`
+          ? `/proxy?url=${encodeURIComponent(activeSub.file)}`
           : activeSub.file;
 
         const res = await fetch(url);

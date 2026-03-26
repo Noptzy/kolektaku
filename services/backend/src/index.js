@@ -98,7 +98,10 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((s) => s.trim()) : '*';
+const allowedOrigins = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',').map((s) => s.trim().replace(/\/$/, ''))
+    : '*';
+console.log('RUNTIME allowedOrigins:', allowedOrigins);
 
 app.use(
     cors({
