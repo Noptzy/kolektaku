@@ -76,13 +76,20 @@ function buildSubtitleCSS(style, isMobile = false) {
   };
 }
 
-/** Proxy all HLS requests through the proxy server */
+/** Proxy only m3u8 requests — .ts segments go directly to CDN */
 class ProxyLoader extends Hls.DefaultConfig.loader {
   constructor(config) {
     super(config);
     const load = this.load.bind(this);
     this.load = (context, config, callbacks) => {
       const originalUrl = context.url;
+
+      // .ts segments: bypass proxy, fetch directly from CDN
+      if (originalUrl.includes(".ts")) {
+        load(context, config, callbacks);
+        return;
+      }
+
       const proxyUrl = `${PROXY_URL}/proxy?url=${encodeURIComponent(originalUrl)}`;
       const newContext = { ...context, url: proxyUrl };
       const newCallbacks = {

@@ -276,8 +276,8 @@ app.get("/proxy", async (req, res) => {
 
   try {
     const response = await axios.get(url, {
-      responseType: "arraybuffer",
-      timeout: 20000,
+      responseType: "stream",
+      timeout: 30000,
       headers: {
         Referer: "https://rapid-cloud.co/",
         Origin: "https://rapid-cloud.co",
@@ -286,17 +286,20 @@ app.get("/proxy", async (req, res) => {
       },
     });
 
-    if (response.headers["content-type"]) {
-      res.setHeader("Content-Type", response.headers["content-type"]);
-    }
-    res.send(response.data);
+    // Copy essential headers
+    if (response.headers["content-type"]) res.setHeader("Content-Type", response.headers["content-type"]);
+    if (response.headers["content-length"]) res.setHeader("Content-Length", response.headers["content-length"]);
+    if (response.headers["accept-ranges"]) res.setHeader("Accept-Ranges", response.headers["accept-ranges"]);
+
+    // Add CORS headers for video player
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range");
+
+    response.data.pipe(res);
   } catch (error) {
     console.error(`Proxy Error: ${url} — ${error.message}`);
-    if (error.response) {
-      res.status(error.response.status).send(error.response.data);
-    } else {
-      res.status(500).send("Internal Server Error");
-    }
+    res.status(error.response?.status || 500).send("Proxy error occurred");
   }
 });
 

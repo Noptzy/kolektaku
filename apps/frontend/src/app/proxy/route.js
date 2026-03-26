@@ -5,10 +5,21 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 let cachedFreeProxies = [];
 let lastFetch = 0;
 
+const FETCH_HEADERS = {
+  Referer: "https://rapid-cloud.co/",
+  Origin: "https://rapid-cloud.co",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  Accept: "*/*",
+  "Accept-Encoding": "identity", // Disable compression so streaming works cleanly
+  "Sec-Ch-Ua": '"Chromium";v="144", "Not-A.Brand";v="24", "Google Chrome";v="144"',
+  "Sec-Ch-Ua-Mobile": "?0",
+  "Sec-Ch-Ua-Platform": '"Windows"',
+};
+
 async function getFreeProxies() {
   const now = Date.now();
-  // Fetch ulang setiap 10 menit jika list ampas
-  if (cachedFreeProxies.length > 100 && now - lastFetch < 10 * 60 * 100)
+  if (cachedFreeProxies.length > 100 && now - lastFetch < 10 * 60 * 1000)
     return cachedFreeProxies;
 
   try {
@@ -18,16 +29,13 @@ async function getFreeProxies() {
       "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
       "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/http/data.txt",
       "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
-      "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
       "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
-      "https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt"
     ];
 
-    console.log("[Proxy] Fetching expanded free proxies...");
     const results = await Promise.allSettled(
       sources.map((s) => axios.get(s, { timeout: 8000 })),
     );
-    
+
     let all = [];
     results.forEach((r) => {
       if (r.status === "fulfilled" && typeof r.value.data === "string") {
@@ -42,39 +50,44 @@ async function getFreeProxies() {
     cachedFreeProxies = [...new Set(all)];
     lastFetch = now;
     console.log(`[Proxy] Loaded ${cachedFreeProxies.length} free proxies`);
-    return cachedFreeProxies;
   } catch (e) {
-    return cachedFreeProxies;
+    // keep stale cache
   }
+  return cachedFreeProxies;
 }
 
-async function tryFetch(url, proxy, timeout = 12000) {
+// For m3u8: arraybuffer (needs full content for URL rewriting)
+async function fetchBuffer(url, proxy, timeout = 10000) {
   const agent = proxy ? new HttpsProxyAgent(proxy) : undefined;
-
   const res = await axios.get(url, {
     responseType: "arraybuffer",
-    timeout: timeout,
+    timeout,
     httpsAgent: agent,
     proxy: false,
-    headers: {
-      Referer: "https://rapid-cloud.co/",
-      Origin: "https://rapid-cloud.co",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-      Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Sec-Ch-Ua":
-        '"Chromium";v="144", "Not-A.Brand";v="24", "Google Chrome";v="144"',
-      "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"Windows"',
-    },
+    headers: FETCH_HEADERS,
   });
-
   const contentType = res.headers["content-type"] || "";
   if (contentType.includes("text/html") && res.data.length < 10000) {
     throw new Error("Cloudflare Blocked");
   }
+  return res;
+}
 
+// For .ts segments: stream directly — no buffering, bytes flow immediately
+async function fetchStream(url, proxy, timeout = 10000) {
+  const agent = proxy ? new HttpsProxyAgent(proxy) : undefined;
+  const res = await axios.get(url, {
+    responseType: "stream",
+    timeout,
+    httpsAgent: agent,
+    proxy: false,
+    headers: FETCH_HEADERS,
+  });
+  const contentType = res.headers["content-type"] || "";
+  if (contentType.includes("text/html")) {
+    res.data.destroy();
+    throw new Error("Cloudflare Blocked");
+  }
   return res;
 }
 
@@ -83,7 +96,7 @@ function getStickyProxies(url, allProxies, count = 40) {
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split("/");
-    pathParts.pop(); // Folder path only
+    pathParts.pop();
     const stickyKey = urlObj.hostname + pathParts.join("/");
 
     let hash = 0;
@@ -98,9 +111,24 @@ function getStickyProxies(url, allProxies, count = 40) {
       selected.push(allProxies[(startIndex + i) % allProxies.length]);
     }
     return selected;
-  } catch (e) {
+  } catch {
     return allProxies.slice(0, count);
   }
+}
+
+function nodeStreamToWeb(nodeStream) {
+  return new ReadableStream({
+    start(controller) {
+      nodeStream.on("data", (chunk) =>
+        controller.enqueue(new Uint8Array(chunk)),
+      );
+      nodeStream.on("end", () => controller.close());
+      nodeStream.on("error", (e) => controller.error(e));
+    },
+    cancel() {
+      nodeStream.destroy();
+    },
+  });
 }
 
 export async function OPTIONS() {
@@ -119,43 +147,80 @@ export async function GET(request) {
   const url = searchParams.get("url");
   if (!url) return new NextResponse("URL is required", { status: 400 });
 
+  const isSegment = url.includes(".ts");
+  const isM3u8 = url.includes(".m3u8");
+
+  const responseHeaders = new Headers();
+  responseHeaders.set("Access-Control-Allow-Origin", "*");
+  if (isSegment || isM3u8) {
+    responseHeaders.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  }
+
+  // ── SEGMENT (.ts): stream langsung, zero buffering ──────────────────────
+  if (isSegment) {
+    try {
+      let res;
+      try {
+        res = await fetchStream(url, null, 8000);
+      } catch {
+        const freeProxies = await getFreeProxies();
+        const candidates = getStickyProxies(url, freeProxies, 40);
+        res = await Promise.any(
+          candidates.map((p) => fetchStream(url, p, 15000)),
+        );
+      }
+
+      const contentType = res.headers["content-type"];
+      if (contentType) responseHeaders.set("Content-Type", contentType);
+      if (res.headers["content-length"])
+        responseHeaders.set("Content-Length", res.headers["content-length"]);
+
+      return new NextResponse(nodeStreamToWeb(res.data), {
+        status: 200,
+        headers: responseHeaders,
+      });
+    } catch (error) {
+      console.error(`[Proxy] Segment failed: ${url.substring(0, 60)}`);
+      return new NextResponse("Segment unavailable", {
+        status: 503,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
+    }
+  }
+
+  // ── M3U8 / other: arraybuffer + URL rewriting ────────────────────────────
   try {
-    const freeProxies = await getFreeProxies();
-    
-    // Gunakan Sticky Logic: Segmen video yang sama dapet pool proxy yang sama
-    const candidates = getStickyProxies(url, freeProxies, 40);
-
-    console.log(`[Proxy] Racing 40 sticky free proxies for: ${url.substring(0, 50)}...`);
-    const winner = await Promise.any(
-      candidates.map((p) => tryFetch(url, p, 15000)),
-    );
-
-    const responseHeaders = new Headers();
-    responseHeaders.set("Access-Control-Allow-Origin", "*");
+    let winner;
+    try {
+      winner = await fetchBuffer(url, null, 8000);
+    } catch {
+      const freeProxies = await getFreeProxies();
+      const candidates = getStickyProxies(url, freeProxies, 40);
+      winner = await Promise.any(
+        candidates.map((p) => fetchBuffer(url, p, 15000)),
+      );
+    }
 
     let data = winner.data;
     const contentType = winner.headers["content-type"];
     if (contentType) responseHeaders.set("Content-Type", contentType);
 
-    // M3U8 Rewriting: Biar segmen video selanjutnya tetep lewat proxy kita
-    if (
-      url.includes(".m3u8") &&
-      (contentType.includes("application/vnd.apple.mpegurl") ||
-        contentType.includes("text/plain"))
-    ) {
+    if (isM3u8) {
       let content = Buffer.from(data).toString();
       const baseUrl =
         new URL(url).origin +
         new URL(url).pathname.split("/").slice(0, -1).join("/") +
         "/";
 
+      // Resolve relative URLs to absolute, but don't rewrite to proxy.
+      // .ts segments will be fetched directly by the browser from CDN.
       const lines = content.split("\n").map((line) => {
         if (line.trim() && !line.startsWith("#")) {
-          let segmentUrl = line.trim();
+          const segmentUrl = line.trim();
           if (!segmentUrl.startsWith("http")) {
-            segmentUrl = new URL(segmentUrl, baseUrl).toString();
+            return new URL(segmentUrl, baseUrl).toString();
           }
-          return `${origin}/proxy?url=${encodeURIComponent(segmentUrl)}`;
+          return segmentUrl;
         }
         return line;
       });
@@ -163,20 +228,10 @@ export async function GET(request) {
       responseHeaders.set("Content-Length", data.length.toString());
     }
 
-    if (url.includes(".ts") || url.includes(".m3u8") || url.includes(".js")) {
-      responseHeaders.set(
-        "Cache-Control",
-        "public, max-age=3600, s-maxage=3600",
-      );
-    }
-
-    return new NextResponse(data, {
-      status: 200,
-      headers: responseHeaders,
-    });
+    return new NextResponse(data, { status: 200, headers: responseHeaders });
   } catch (error) {
-    console.error(`[Proxy Error] 40 free proxies failed for ${url}`);
-    return new NextResponse("All free proxies blocked. Try again.", {
+    console.error(`[Proxy Error] Failed: ${url.substring(0, 60)}`);
+    return new NextResponse("Proxy failed. Try again.", {
       status: 503,
       headers: { "Access-Control-Allow-Origin": "*" },
     });
