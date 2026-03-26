@@ -159,16 +159,7 @@ export async function GET(request) {
   // ── SEGMENT (.ts): stream langsung, zero buffering ──────────────────────
   if (isSegment) {
     try {
-      let res;
-      try {
-        res = await fetchStream(url, null, 8000);
-      } catch {
-        const freeProxies = await getFreeProxies();
-        const candidates = getStickyProxies(url, freeProxies, 40);
-        res = await Promise.any(
-          candidates.map((p) => fetchStream(url, p, 15000)),
-        );
-      }
+      const res = await fetchStream(url, null, 15000);
 
       const contentType = res.headers["content-type"];
       if (contentType) responseHeaders.set("Content-Type", contentType);
@@ -180,7 +171,7 @@ export async function GET(request) {
         headers: responseHeaders,
       });
     } catch (error) {
-      console.error(`[Proxy] Segment failed: ${url.substring(0, 60)}`);
+      console.error(`[Proxy] Segment failed: ${url.substring(0, 60)}`, error.message);
       return new NextResponse("Segment unavailable", {
         status: 503,
         headers: { "Access-Control-Allow-Origin": "*" },
@@ -190,16 +181,7 @@ export async function GET(request) {
 
   // ── M3U8 / other: arraybuffer + URL rewriting ────────────────────────────
   try {
-    let winner;
-    try {
-      winner = await fetchBuffer(url, null, 8000);
-    } catch {
-      const freeProxies = await getFreeProxies();
-      const candidates = getStickyProxies(url, freeProxies, 40);
-      winner = await Promise.any(
-        candidates.map((p) => fetchBuffer(url, p, 15000)),
-      );
-    }
+    const winner = await fetchBuffer(url, null, 15000);
 
     let data = winner.data;
     const contentType = winner.headers["content-type"];
@@ -212,8 +194,7 @@ export async function GET(request) {
         new URL(url).pathname.split("/").slice(0, -1).join("/") +
         "/";
 
-      // Resolve relative URLs to absolute, but don't rewrite to proxy.
-      // .ts segments will be fetched directly by the browser from CDN.
+      // Resolve relative URLs to absolute
       const lines = content.split("\n").map((line) => {
         if (line.trim() && !line.startsWith("#")) {
           const segmentUrl = line.trim();
@@ -230,7 +211,7 @@ export async function GET(request) {
 
     return new NextResponse(data, { status: 200, headers: responseHeaders });
   } catch (error) {
-    console.error(`[Proxy Error] Failed: ${url.substring(0, 60)}`);
+    console.error(`[Proxy Error] Failed: ${url.substring(0, 60)}`, error.message);
     return new NextResponse("Proxy failed. Try again.", {
       status: 503,
       headers: { "Access-Control-Allow-Origin": "*" },
